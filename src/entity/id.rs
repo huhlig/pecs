@@ -248,6 +248,18 @@ impl StableId {
     pub const fn low(self) -> u64 {
         self.0 as u64
     }
+
+    /// Convert to u128 for serialization.
+    #[inline]
+    pub const fn as_u128(self) -> u128 {
+        self.0
+    }
+
+    /// Create from u128 for deserialization.
+    #[inline]
+    pub const fn from_u128(value: u128) -> Self {
+        Self(value)
+    }
 }
 
 impl Default for StableId {

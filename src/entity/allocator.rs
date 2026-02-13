@@ -18,6 +18,7 @@
 //! allocator.free(entity_id);
 //! ```
 
+use super::EntityError;
 use super::id::{EntityId, StableId};
 use std::collections::HashMap;
 
@@ -338,6 +339,151 @@ impl EntityAllocator {
         self.ephemeral_to_stable.clear();
         self.stable_to_ephemeral.clear();
     }
+
+    /// Allocates an entity with a specific stable ID.
+    ///
+    /// This is used during deserialization to restore entities with their
+    /// original stable IDs. If the stable ID already exists, this returns
+    /// an error to prevent ID conflicts.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID to use for the entity
+    ///
+    /// # Returns
+    ///
+    /// The ephemeral ID for the entity, or an error if the stable ID is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::allocator::EntityAllocator;
+    /// use pecs::entity::id::StableId;
+    ///
+    /// let mut allocator = EntityAllocator::new();
+    /// let stable_id = StableId::from_raw(12345);
+    /// let entity_id = allocator.allocate_with_stable_id(stable_id).unwrap();
+    /// assert_eq!(allocator.get_stable_id(entity_id), Some(stable_id));
+    /// ```
+    pub fn allocate_with_stable_id(
+        &mut self,
+        stable_id: StableId,
+    ) -> Result<EntityId, EntityError> {
+        // Check if stable ID already exists
+        if self.stable_to_ephemeral.contains_key(&stable_id) {
+            return Err(EntityError::DuplicateStableId);
+        }
+
+        let entity_id = if let Some(index) = self.free_list.pop() {
+            // Recycle a free slot
+            let meta = &mut self.meta[index as usize];
+            meta.generation = meta.generation.wrapping_add(1).max(1);
+            meta.stable_id = Some(stable_id);
+            EntityId::new(index, meta.generation)
+        } else {
+            // Allocate a new slot
+            let index = self.meta.len() as u32;
+            self.meta.push(EntityMeta {
+                generation: 1,
+                stable_id: Some(stable_id),
+            });
+            EntityId::new(index, 1)
+        };
+
+        // Update bidirectional mapping
+        self.ephemeral_to_stable.insert(entity_id, stable_id);
+        self.stable_to_ephemeral.insert(stable_id, entity_id);
+
+        Ok(entity_id)
+    }
+
+    /// Remaps an existing entity to a new stable ID.
+    ///
+    /// This is useful for resolving ID conflicts during load operations.
+    /// The old stable ID mapping is removed and replaced with the new one.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity_id` - The entity to remap
+    /// * `new_stable_id` - The new stable ID to assign
+    ///
+    /// # Returns
+    ///
+    /// The old stable ID if successful, or an error if the entity is invalid
+    /// or the new stable ID is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::allocator::EntityAllocator;
+    /// use pecs::entity::id::StableId;
+    ///
+    /// let mut allocator = EntityAllocator::new();
+    /// let (entity_id, old_stable_id) = allocator.allocate();
+    /// let new_stable_id = StableId::from_raw(99999);
+    ///
+    /// let remapped = allocator.remap_stable_id(entity_id, new_stable_id).unwrap();
+    /// assert_eq!(remapped, old_stable_id);
+    /// assert_eq!(allocator.get_stable_id(entity_id), Some(new_stable_id));
+    /// ```
+    pub fn remap_stable_id(
+        &mut self,
+        entity_id: EntityId,
+        new_stable_id: StableId,
+    ) -> Result<StableId, EntityError> {
+        let index = entity_id.index() as usize;
+
+        // Validate the entity exists and matches generation
+        if index >= self.meta.len() {
+            return Err(EntityError::InvalidEntity);
+        }
+
+        let meta = &self.meta[index];
+        if meta.generation != entity_id.generation() {
+            return Err(EntityError::InvalidEntity); // Stale reference
+        }
+
+        let old_stable_id = meta.stable_id.ok_or(EntityError::InvalidEntity)?;
+
+        // Check if new stable ID is already in use
+        if self.stable_to_ephemeral.contains_key(&new_stable_id) {
+            return Err(EntityError::DuplicateStableId);
+        }
+
+        // Remove old mapping
+        self.ephemeral_to_stable.remove(&entity_id);
+        self.stable_to_ephemeral.remove(&old_stable_id);
+
+        // Add new mapping
+        self.meta[index].stable_id = Some(new_stable_id);
+        self.ephemeral_to_stable.insert(entity_id, new_stable_id);
+        self.stable_to_ephemeral.insert(new_stable_id, entity_id);
+
+        Ok(old_stable_id)
+    }
+
+    /// Returns an iterator over all alive entities and their stable IDs.
+    ///
+    /// This is useful for persistence operations that need to iterate
+    /// over all entities.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::allocator::EntityAllocator;
+    ///
+    /// let mut allocator = EntityAllocator::new();
+    /// allocator.allocate();
+    /// allocator.allocate();
+    ///
+    /// let entities: Vec<_> = allocator.iter().collect();
+    /// assert_eq!(entities.len(), 2);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = (EntityId, StableId)> + '_ {
+        self.ephemeral_to_stable
+            .iter()
+            .map(|(&entity_id, &stable_id)| (entity_id, stable_id))
+    }
 }
 
 impl Default for EntityAllocator {
@@ -473,6 +619,89 @@ mod tests {
 
         assert_eq!(allocator.get_stable_id(entity_id), None);
         assert_eq!(allocator.get_entity_id(stable_id), None);
+    }
+
+    #[test]
+    fn allocate_with_stable_id() {
+        let mut allocator = EntityAllocator::new();
+        let stable_id = StableId::from_raw(12345);
+
+        let entity_id = allocator.allocate_with_stable_id(stable_id).unwrap();
+        assert_eq!(allocator.get_stable_id(entity_id), Some(stable_id));
+        assert_eq!(allocator.get_entity_id(stable_id), Some(entity_id));
+    }
+
+    #[test]
+    fn allocate_with_duplicate_stable_id() {
+        let mut allocator = EntityAllocator::new();
+        let stable_id = StableId::from_raw(12345);
+
+        allocator.allocate_with_stable_id(stable_id).unwrap();
+        let result = allocator.allocate_with_stable_id(stable_id);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::DuplicateStableId);
+    }
+
+    #[test]
+    fn remap_stable_id() {
+        let mut allocator = EntityAllocator::new();
+        let (entity_id, old_stable_id) = allocator.allocate();
+        let new_stable_id = StableId::from_raw(99999);
+
+        let remapped = allocator.remap_stable_id(entity_id, new_stable_id).unwrap();
+        assert_eq!(remapped, old_stable_id);
+        assert_eq!(allocator.get_stable_id(entity_id), Some(new_stable_id));
+        assert_eq!(allocator.get_entity_id(new_stable_id), Some(entity_id));
+        assert_eq!(allocator.get_entity_id(old_stable_id), None);
+    }
+
+    #[test]
+    fn remap_to_existing_stable_id() {
+        let mut allocator = EntityAllocator::new();
+        let (entity1, _) = allocator.allocate();
+        let (_, stable_id2) = allocator.allocate();
+
+        // Try to remap entity1 to stable_id2 (which is already in use)
+        let result = allocator.remap_stable_id(entity1, stable_id2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn remap_invalid_entity() {
+        let mut allocator = EntityAllocator::new();
+        let entity = EntityId::new(999, 1); // Non-existent entity
+        let new_stable_id = StableId::from_raw(12345);
+
+        let result = allocator.remap_stable_id(entity, new_stable_id);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn iter_entities() {
+        let mut allocator = EntityAllocator::new();
+        let (e1, s1) = allocator.allocate();
+        let (e2, s2) = allocator.allocate();
+        let (e3, s3) = allocator.allocate();
+
+        let entities: Vec<_> = allocator.iter().collect();
+        assert_eq!(entities.len(), 3);
+        assert!(entities.contains(&(e1, s1)));
+        assert!(entities.contains(&(e2, s2)));
+        assert!(entities.contains(&(e3, s3)));
+    }
+
+    #[test]
+    fn iter_after_despawn() {
+        let mut allocator = EntityAllocator::new();
+        let (e1, _) = allocator.allocate();
+        let (e2, s2) = allocator.allocate();
+
+        allocator.free(e1);
+
+        let entities: Vec<_> = allocator.iter().collect();
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities[0], (e2, s2));
     }
 }
 
