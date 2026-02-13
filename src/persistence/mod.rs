@@ -31,11 +31,13 @@
 //! let loaded_world = World::load("world.pecs")?;
 //! ```
 
+pub mod binary;
 pub mod error;
 pub mod manager;
 pub mod metadata;
 pub mod plugin;
 
+pub use binary::BinaryPlugin;
 pub use error::{PersistenceError, Result};
 pub use manager::PersistenceManager;
 pub use metadata::{ChangeTracker, ComponentTypeInfo, WorldMetadata};

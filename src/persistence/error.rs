@@ -43,6 +43,31 @@ pub enum PersistenceError {
 
     /// Custom error from a plugin.
     PluginError(String),
+
+    /// Checksum mismatch detected.
+    ChecksumMismatch {
+        /// Expected checksum.
+        expected: u64,
+        /// Actual checksum.
+        actual: u64,
+    },
+}
+
+impl PersistenceError {
+    /// Create a serialization error.
+    pub fn serialization_error(msg: impl Into<String>) -> Self {
+        Self::Serialization(msg.into())
+    }
+
+    /// Create a deserialization error.
+    pub fn deserialization_error(msg: impl Into<String>) -> Self {
+        Self::Deserialization(msg.into())
+    }
+
+    /// Create an I/O error.
+    pub fn io_error(msg: impl Into<String>) -> Self {
+        Self::Io(io::Error::other(msg.into()))
+    }
 }
 
 impl fmt::Display for PersistenceError {
@@ -66,6 +91,13 @@ impl fmt::Display for PersistenceError {
             Self::MigrationFailed(msg) => write!(f, "Migration failed: {}", msg),
             Self::PluginNotFound(name) => write!(f, "Plugin not found: {}", name),
             Self::PluginError(msg) => write!(f, "Plugin error: {}", msg),
+            Self::ChecksumMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "Checksum mismatch: expected 0x{:016x}, got 0x{:016x}",
+                    expected, actual
+                )
+            }
         }
     }
 }

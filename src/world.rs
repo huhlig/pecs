@@ -392,6 +392,35 @@ impl World {
         &mut self.metadata
     }
 
+    /// Returns an iterator over all entities with their stable IDs.
+    ///
+    /// This is useful for persistence operations that need to serialize
+    /// entities with their stable identifiers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::World;
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_empty();
+    ///
+    /// for (entity, stable_id) in world.iter_entities() {
+    ///     println!("Entity {:?} has stable ID {}", entity, stable_id);
+    /// }
+    /// ```
+    pub fn iter_entities(&self) -> impl Iterator<Item = (EntityId, StableId)> + '_ {
+        self.entities.iter()
+    }
+
+    /// Returns a mutable reference to the entity manager.
+    ///
+    /// This is primarily for internal use by persistence systems.
+    #[doc(hidden)]
+    pub fn entities_mut(&mut self) -> &mut EntityManager {
+        &mut self.entities
+    }
+
     /// Saves the world to a file using the default persistence plugin.
     ///
     /// # Arguments
