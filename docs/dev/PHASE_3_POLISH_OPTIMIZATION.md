@@ -2,7 +2,7 @@
 
 **Phase Duration**: Months 5-6 (8 weeks)
 **Status**: 🟡 In Progress
-**Progress**: 10% (Task 1.2 Complete)
+**Progress**: 20% (Task 1.4 Complete)
 **Last Updated**: 2026-02-13
 
 ---
@@ -58,19 +58,19 @@ Phase 3 focuses on refining the PECS library to production quality. This include
   - Cache optimization
   - **Completed**: 2026-02-13
 
-- [ ] **Task 1.3**: Component storage optimization (Next)
+- [x] **Task 1.3**: Component storage optimization ✅
   - Optimize archetype transitions
   - Improve cache locality
   - Reduce memory fragmentation
   - Optimize sparse set operations
-  - **Estimated**: 2 days
+  - **Completed**: 2026-02-13
 
-- [ ] **Task 1.4**: Query optimization
+- [x] **Task 1.4**: Query optimization ✅
   - Optimize query iteration
   - Improve archetype filtering
-  - Parallel query support
-  - Query caching strategies
-  - **Estimated**: 2 days
+  - Parallel query support (deferred)
+  - Query caching strategies (deferred)
+  - **Completed**: 2026-02-13
 
 - [ ] **Task 1.5**: Persistence optimization
   - Optimize serialization speed

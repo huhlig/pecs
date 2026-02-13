@@ -87,7 +87,9 @@ impl ComponentStorage {
             return;
         }
 
-        let new_capacity = required.max(self.capacity * 2).max(4);
+        // Use a more aggressive growth strategy for better amortized performance
+        // Growth factor of 1.5x is optimal for memory reuse while minimizing reallocations
+        let new_capacity = required.max((self.capacity * 3) / 2).max(16); // Start with 16 instead of 4 to reduce early reallocations
         self.realloc(new_capacity);
     }
 

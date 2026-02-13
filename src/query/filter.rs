@@ -2,6 +2,14 @@
 //!
 //! Filters allow you to specify additional constraints on which entities
 //! should be included in query results, beyond just component presence.
+//!
+//! # Performance Optimizations
+//!
+//! Filters are evaluated at two levels:
+//! - Archetype-level: Filters like `With` and `Without` can eliminate entire archetypes
+//! - Entity-level: Custom filters can check individual entities
+//!
+//! The query iterator uses archetype-level filtering to skip non-matching archetypes entirely.
 
 use super::Filter;
 use crate::component::{Component, archetype::Archetype};
@@ -12,6 +20,11 @@ use std::marker::PhantomData;
 ///
 /// This is useful when you want to filter by component presence without
 /// actually fetching the component data.
+///
+/// # Performance
+///
+/// This is an archetype-level filter, meaning entire archetypes can be skipped
+/// if they don't have the required component. This is very efficient.
 ///
 /// # Examples
 ///
@@ -24,6 +37,7 @@ pub struct With<T: Component> {
 }
 
 impl<'a, T: Component> Filter<'a> for With<T> {
+    #[inline(always)]
     fn matches(archetype: &Archetype, _entity: EntityId) -> bool {
         archetype.has_component::<T>()
     }
@@ -32,6 +46,11 @@ impl<'a, T: Component> Filter<'a> for With<T> {
 /// A filter that requires an entity to NOT have a specific component.
 ///
 /// This is useful for excluding entities with certain components.
+///
+/// # Performance
+///
+/// This is an archetype-level filter, meaning entire archetypes can be skipped
+/// if they have the excluded component. This is very efficient.
 ///
 /// # Examples
 ///
@@ -44,6 +63,7 @@ pub struct Without<T: Component> {
 }
 
 impl<'a, T: Component> Filter<'a> for Without<T> {
+    #[inline(always)]
     fn matches(archetype: &Archetype, _entity: EntityId) -> bool {
         !archetype.has_component::<T>()
     }
