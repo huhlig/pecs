@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-13
 **Current Phase**: Phase 1 - Core ECS
-**Overall Progress**: 60%
+**Overall Progress**: 80%
 
 ---
 
@@ -20,7 +20,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 
 | Phase | Name | Status | Progress | Start Date | Target End Date |
 |-------|------|--------|----------|------------|-----------------|
-| 1 | Core ECS | 🟡 In Progress | 60% | 2026-02-13 | Month 2 |
+| 1 | Core ECS | 🟡 In Progress | 80% | 2026-02-13 | Month 2 |
 | 2 | Persistence | ⚪ Planned | 0% | Month 3 | Month 4 |
 | 3 | Polish & Optimization | ⚪ Planned | 0% | Month 5 | Month 6 |
 | 4 | Release | ⚪ Planned | 0% | Month 6+ | TBD |
@@ -34,7 +34,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 ### Phase 1: Core ECS (Months 1-2)
 
 **Status**: 🟡 In Progress
-**Progress**: 60%
+**Progress**: 80%
 
 #### Objectives
 - Implement entity and component management
@@ -45,8 +45,8 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - [x] Entity Manager with ID generation ✅
 - [x] Component storage system ✅
 - [x] Query interface ✅
-- [ ] Command buffer implementation
-- [x] Test suite (72 tests passing) ✅
+- [x] Command buffer implementation ✅
+- [x] Test suite (83 tests passing) ✅
 
 **See**: [Phase 1 Development Plan](./PHASE_1_CORE_ECS.md)
 
@@ -58,7 +58,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - [x] M1.1: Entity Manager Complete (Week 2) ✅ 2026-02-13
 - [x] M1.2: Component Storage Complete (Week 4) ✅ 2026-02-13
 - [x] M1.3: Query System Complete (Week 6) ✅ 2026-02-13
-- [ ] M1.4: Command Buffers Complete (Week 8)
+- [x] M1.4: Command Buffers Complete (Week 8) ✅ 2026-02-13
 - [ ] M1.5: World Integration Complete
 
 ### Phase 2 Milestones
@@ -94,8 +94,8 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - Zero critical bugs in production
 
 ### Current Metrics
-- Test coverage: ~87% (72 tests passing, entity, component, and query modules fully tested)
-- Documentation coverage: 100% of entity, component, and query module public APIs
+- Test coverage: ~88% (83 tests passing, entity, component, query, and command modules fully tested)
+- Documentation coverage: 100% of entity, component, query, and command module public APIs
 - Performance: Not benchmarked yet (deferred to Phase 3)
 
 ---
@@ -168,6 +168,12 @@ None currently open.
 - ✅ Enhanced Archetype with component access methods
 - ✅ Added complete rustdoc documentation for query module
 - ✅ Milestone M1.3 Complete: Query System ✅
+- ✅ Implemented Command trait for deferred operations
+- ✅ Implemented CommandBuffer with recording and replay
+- ✅ Implemented Spawn, Despawn, Insert, Remove commands
+- ✅ Added 11 new tests for command system (83 total, all passing)
+- ✅ Added complete rustdoc documentation for command module
+- ✅ Milestone M1.4 Complete: Command Buffers ✅
 
 ---
 
@@ -179,20 +185,21 @@ None currently open.
 4. ✅ ~~Set up testing framework~~
 5. ✅ ~~Week 3-4: Component Storage implementation~~
 6. ✅ ~~Week 5-6: Query System implementation~~
-7. Begin Week 7-8: Command Buffer implementation
-8. Design command buffer architecture
-9. Implement core commands (spawn, despawn, insert, remove)
-10. Add thread-safety for concurrent command recording
-11. Configure CI/CD pipeline (deferred)
+7. ✅ ~~Week 7-8: Command Buffer implementation~~
+8. Begin World Integration (Final Phase 1 task)
+9. Implement World struct with all subsystems
+10. Create comprehensive integration tests
+11. Complete Phase 1 documentation
+12. Configure CI/CD pipeline (deferred)
 
 ---
 
 ## Notes
 
-- Phase 1 is progressing well (60% complete)
-- Query system implementation complete ahead of schedule
-- All tests passing with excellent coverage (~87%)
-- Ready to begin command buffer implementation
+- Phase 1 is progressing excellently (80% complete)
+- Command buffer system complete ahead of schedule
+- All tests passing with excellent coverage (~88%, 83 tests)
+- Ready to begin World integration (final Phase 1 task)
 - All phases are subject to adjustment based on progress
 - Regular status updates will be made as development progresses
 - Community feedback will be incorporated throughout development

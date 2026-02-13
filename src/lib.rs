@@ -40,14 +40,16 @@
 //! - [`entity`]: Entity lifecycle management with dual ID system
 //! - [`component`]: Component storage and management
 //! - [`query`]: Type-safe component queries
-//! - `command`: Thread-safe command buffers (coming soon)
+//! - [`command`]: Thread-safe command buffers
 //! - `world`: Top-level ECS world (coming soon)
 
+pub mod command;
 pub mod component;
 pub mod entity;
 pub mod query;
 
 // Re-export commonly used types
+pub use command::{Command, CommandBuffer};
 pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
 pub use query::{Fetch, Filter, Query};
