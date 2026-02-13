@@ -1,0 +1,434 @@
+# Phase 1: Core ECS Development Plan
+
+**Phase Duration**: Months 1-2 (8 weeks)
+**Status**: 🟡 In Progress
+**Progress**: 12.5%
+**Last Updated**: 2026-02-13
+
+---
+
+## Phase Overview
+
+Phase 1 focuses on building the foundational ECS architecture without persistence. This includes entity management, component storage, query systems, and command buffers for thread-safe operations.
+
+### Goals
+- Establish core ECS functionality
+- Implement efficient entity and component management
+- Create ergonomic query interface
+- Build command buffer system for thread-safety
+- Achieve baseline performance targets
+
+### Success Criteria
+- ✅ All entity operations functional
+- ✅ Component storage working efficiently
+- ✅ Query system supports basic patterns
+- ✅ Command buffers enable thread-safe operations
+- ✅ Test coverage > 80%
+- ✅ Basic benchmarks established
+
+---
+
+## Week-by-Week Breakdown
+
+### Week 1-2: Entity Manager
+
+**Objective**: Implement entity lifecycle management with dual ID system
+
+#### Tasks
+- [x] **Task 1.1**: Design entity ID structure
+  - ✅ Implement ephemeral ID (32-bit index + 32-bit generation)
+  - ✅ Implement stable ID (128-bit UUID)
+  - ✅ Create bidirectional mapping between IDs
+  - **Completed**: 2026-02-13
+
+- [x] **Task 1.2**: Implement entity creation
+  - ✅ Entity spawning with ID generation
+  - ✅ ID recycling with generation tracking
+  - ✅ Entity metadata storage
+  - **Completed**: 2026-02-13
+
+- [x] **Task 1.3**: Implement entity deletion
+  - ✅ Safe entity removal
+  - ✅ Component cleanup (ready for components)
+  - ✅ ID recycling queue
+  - **Completed**: 2026-02-13
+
+- [x] **Task 1.4**: Entity lookup and iteration
+  - ✅ Fast lookup by ephemeral ID
+  - ✅ Lookup by stable ID
+  - ✅ Entity iteration support (via allocator)
+  - **Completed**: 2026-02-13
+
+- [x] **Task 1.5**: Testing and documentation
+  - ✅ Unit tests for all operations (34 tests passing)
+  - ⏳ Performance benchmarks (deferred to optimization phase)
+  - ✅ API documentation (comprehensive rustdoc)
+  - **Completed**: 2026-02-13
+
+**Deliverables**:
+- `src/entity/mod.rs` - Entity manager module
+- `src/entity/id.rs` - Entity ID types
+- `src/entity/allocator.rs` - ID allocation and recycling
+- Tests in `tests/entity_tests.rs`
+- Benchmarks in `benches/entity_bench.rs`
+
+**Milestone**: M1.1 - Entity Manager Complete
+
+---
+
+### Week 3-4: Component Storage
+
+**Objective**: Implement efficient component storage with archetype-based organization
+
+#### Tasks
+- [ ] **Task 2.1**: Design component storage architecture
+  - Archetype-based storage design
+  - Component type registration
+  - Storage trait definitions
+  - **Estimated**: 2 days
+
+- [ ] **Task 2.2**: Implement archetype storage
+  - Archetype identification and creation
+  - Structure of Arrays (SoA) layout
+  - Component insertion and removal
+  - **Estimated**: 3 days
+
+- [ ] **Task 2.3**: Implement sparse set storage
+  - Sparse set for low-coverage components
+  - Efficient add/remove operations
+  - Memory optimization
+  - **Estimated**: 2 days
+
+- [ ] **Task 2.4**: Component access patterns
+  - Fast component lookup by entity
+  - Batch component operations
+  - Component existence checks
+  - **Estimated**: 2 days
+
+- [ ] **Task 2.5**: Testing and optimization
+  - Unit tests for storage operations
+  - Memory layout verification
+  - Performance benchmarks
+  - Cache-friendliness testing
+  - **Estimated**: 1 day
+
+**Deliverables**:
+- `src/component/mod.rs` - Component system module
+- `src/component/storage.rs` - Storage implementations
+- `src/component/archetype.rs` - Archetype management
+- Tests in `tests/component_tests.rs`
+- Benchmarks in `benches/component_bench.rs`
+
+**Milestone**: M1.2 - Component Storage Complete
+
+---
+
+### Week 5-6: Query System
+
+**Objective**: Create ergonomic and efficient query interface for accessing entities and components
+
+#### Tasks
+- [ ] **Task 3.1**: Design query API
+  - Query trait definitions
+  - Type-safe query construction
+  - Mutable and immutable access patterns
+  - **Estimated**: 2 days
+
+- [ ] **Task 3.2**: Implement basic queries
+  - Single component queries
+  - Multi-component queries (AND logic)
+  - Optional component support
+  - **Estimated**: 3 days
+
+- [ ] **Task 3.3**: Implement query filters
+  - With/Without filters
+  - Entity filtering
+  - Custom filter predicates
+  - **Estimated**: 2 days
+
+- [ ] **Task 3.4**: Query iteration and optimization
+  - Iterator implementation
+  - Archetype-aware iteration
+  - Parallel iteration support (basic)
+  - **Estimated**: 2 days
+
+- [ ] **Task 3.5**: Testing and documentation
+  - Comprehensive query tests
+  - Performance benchmarks
+  - Usage examples
+  - API documentation
+  - **Estimated**: 1 day
+
+**Deliverables**:
+- `src/query/mod.rs` - Query system module
+- `src/query/fetch.rs` - Component fetching
+- `src/query/filter.rs` - Query filters
+- `src/query/iter.rs` - Query iteration
+- Tests in `tests/query_tests.rs`
+- Benchmarks in `benches/query_bench.rs`
+
+**Milestone**: M1.3 - Query System Complete
+
+---
+
+### Week 7-8: Command Buffers
+
+**Objective**: Implement command buffer system for thread-safe deferred operations
+
+#### Tasks
+- [ ] **Task 4.1**: Design command buffer architecture
+  - Command trait definition
+  - Buffer storage design
+  - Replay mechanism design
+  - **Estimated**: 2 days
+
+- [ ] **Task 4.2**: Implement core commands
+  - Spawn entity command
+  - Despawn entity command
+  - Insert component command
+  - Remove component command
+  - **Estimated**: 2 days
+
+- [ ] **Task 4.3**: Command buffer management
+  - Buffer creation and lifecycle
+  - Command recording
+  - Command replay/apply
+  - Error handling
+  - **Estimated**: 2 days
+
+- [ ] **Task 4.4**: Thread-safety implementation
+  - Send/Sync trait implementations
+  - Concurrent command recording
+  - Safe buffer application
+  - **Estimated**: 2 days
+
+- [ ] **Task 4.5**: Testing and integration
+  - Unit tests for all commands
+  - Thread-safety tests
+  - Integration with World
+  - Performance benchmarks
+  - **Estimated**: 2 days
+
+**Deliverables**:
+- `src/command/mod.rs` - Command buffer module
+- `src/command/buffer.rs` - Buffer implementation
+- `src/command/commands.rs` - Command types
+- Tests in `tests/command_tests.rs`
+- Benchmarks in `benches/command_bench.rs`
+
+**Milestone**: M1.4 - Command Buffers Complete
+
+---
+
+## World Integration
+
+### Final Integration Tasks
+- [ ] **Task 5.1**: World struct implementation
+  - Integrate all subsystems
+  - Public API design
+  - Resource management
+  - **Estimated**: 2 days
+
+- [ ] **Task 5.2**: World API refinement
+  - Ergonomic method naming
+  - Builder patterns where appropriate
+  - Error handling consistency
+  - **Estimated**: 1 day
+
+- [ ] **Task 5.3**: Comprehensive testing
+  - Integration tests
+  - End-to-end scenarios
+  - Performance validation
+  - **Estimated**: 2 days
+
+**Deliverables**:
+- `src/world.rs` - World implementation
+- `src/lib.rs` - Public API exports
+- Tests in `tests/integration_tests.rs`
+
+---
+
+## Technical Specifications
+
+### Entity ID System
+```rust
+// Ephemeral ID: Fast access
+struct EntityId {
+    index: u32,      // Array index
+    generation: u32, // Recycling counter
+}
+
+// Stable ID: Persistence
+struct StableId(u128); // UUID
+
+// Mapping
+struct EntityMap {
+    ephemeral_to_stable: HashMap<EntityId, StableId>,
+    stable_to_ephemeral: HashMap<StableId, EntityId>,
+}
+```
+
+### Component Storage
+```rust
+// Archetype: Unique component combination
+struct Archetype {
+    component_types: Vec<TypeId>,
+    entities: Vec<EntityId>,
+    components: HashMap<TypeId, Box<dyn ComponentStorage>>,
+}
+
+// Storage trait
+trait ComponentStorage {
+    fn insert(&mut self, entity: EntityId, component: Box<dyn Any>);
+    fn remove(&mut self, entity: EntityId) -> Option<Box<dyn Any>>;
+    fn get(&self, entity: EntityId) -> Option<&dyn Any>;
+}
+```
+
+### Query System
+```rust
+// Query trait
+trait Query {
+    type Item<'a>;
+    fn fetch<'a>(&'a self, world: &'a World) -> QueryIter<'a, Self::Item<'a>>;
+}
+
+// Example usage
+for (pos, vel) in world.query::<(&mut Position, &Velocity)>() {
+    pos.x += vel.x;
+}
+```
+
+### Command Buffer
+```rust
+// Command trait
+trait Command: Send {
+    fn apply(self: Box<Self>, world: &mut World);
+}
+
+// Buffer
+struct CommandBuffer {
+    commands: Vec<Box<dyn Command>>,
+}
+
+impl CommandBuffer {
+    fn spawn(&mut self) -> EntityBuilder { /* ... */ }
+    fn apply(self, world: &mut World) { /* ... */ }
+}
+```
+
+---
+
+## Performance Targets
+
+### Entity Operations
+- Entity creation: < 50ns
+- Entity deletion: < 100ns
+- Entity lookup: < 10ns
+
+### Component Operations
+- Component insertion: < 100ns
+- Component removal: < 100ns
+- Component access: < 5ns (cache hit)
+
+### Query Operations
+- Query setup: < 1μs
+- Iteration: > 1M entities/second
+- Multi-component query: < 10ns per entity
+
+### Command Buffers
+- Command recording: < 50ns per command
+- Buffer application: < 100ns per command
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+- Test each module independently
+- Cover all public APIs
+- Test edge cases and error conditions
+- Verify thread-safety
+
+### Integration Tests
+- Test subsystem interactions
+- Verify end-to-end workflows
+- Test complex scenarios
+
+### Performance Tests
+- Benchmark all critical operations
+- Compare against targets
+- Identify bottlenecks
+- Track performance over time
+
+### Test Coverage Goal
+- Minimum 80% code coverage
+- 100% coverage of public APIs
+- All critical paths tested
+
+---
+
+## Documentation Requirements
+
+### Code Documentation
+- All public APIs documented with rustdoc
+- Examples for common use cases
+- Performance characteristics noted
+- Safety requirements documented
+
+### User Documentation
+- Getting started guide
+- API reference
+- Architecture overview
+- Performance guide
+
+---
+
+## Dependencies
+
+### Required Crates
+- None for core functionality (minimal dependency closure)
+
+### Development Dependencies
+- `criterion` - Benchmarking
+- `proptest` - Property-based testing
+- `rayon` - Parallel testing (optional)
+
+---
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Performance below targets | High | Early benchmarking, profiling, optimization |
+| API complexity | Medium | User testing, examples, documentation |
+| Memory overhead | Medium | Careful storage design, profiling |
+| Thread-safety bugs | High | Extensive testing, careful design |
+
+---
+
+## Phase 1 Completion Checklist
+
+- [ ] All entity operations implemented and tested
+- [ ] Component storage working with archetypes
+- [ ] Query system functional with basic patterns
+- [ ] Command buffers enable thread-safe operations
+- [ ] Test coverage > 80%
+- [ ] All benchmarks passing performance targets
+- [ ] Documentation complete for Phase 1 APIs
+- [ ] Integration tests passing
+- [ ] Code review completed
+- [ ] Ready for Phase 2 (Persistence)
+
+---
+
+## Next Phase Preview
+
+**Phase 2: Persistence** will build on this foundation by adding:
+- Persistence manager
+- Serialization/deserialization
+- Binary format implementation
+- Save/load functionality
+- Plugin architecture
+
+The stable ID system implemented in Phase 1 will be crucial for persistence in Phase 2.
