@@ -35,6 +35,7 @@ use crate::command::CommandBuffer;
 use crate::component::archetype::{ArchetypeId, ArchetypeManager};
 use crate::component::{Component, ComponentSet, ComponentTypeId};
 use crate::entity::{EntityId, EntityManager, StableId};
+use crate::persistence::{PersistenceManager, WorldMetadata};
 
 /// The main ECS world.
 ///
@@ -43,6 +44,7 @@ use crate::entity::{EntityId, EntityManager, StableId};
 /// - Component storage and access
 /// - Query execution
 /// - Command buffer integration
+/// - Persistence operations
 ///
 /// # Thread Safety
 ///
@@ -58,6 +60,12 @@ pub struct World {
 
     /// Command buffer for deferred operations
     commands: CommandBuffer,
+
+    /// Persistence manager
+    persistence: PersistenceManager,
+
+    /// World metadata for persistence
+    metadata: WorldMetadata,
 }
 
 impl World {
@@ -75,6 +83,8 @@ impl World {
             entities: EntityManager::new(),
             archetypes: ArchetypeManager::new(),
             commands: CommandBuffer::new(),
+            persistence: PersistenceManager::new(),
+            metadata: WorldMetadata::new(1, 0, Vec::new()),
         }
     }
 
@@ -96,6 +106,8 @@ impl World {
             entities: EntityManager::with_capacity(entity_capacity),
             archetypes: ArchetypeManager::new(),
             commands: CommandBuffer::with_capacity(entity_capacity),
+            persistence: PersistenceManager::new(),
+            metadata: WorldMetadata::new(1, 0, Vec::new()),
         }
     }
 
@@ -120,6 +132,12 @@ impl World {
     /// ```
     pub fn spawn(&mut self) -> EntityBuilder<'_> {
         let (entity_id, stable_id) = self.entities.spawn_with_stable_id();
+
+        // Track entity creation for persistence
+        self.persistence
+            .change_tracker_mut()
+            .track_created(entity_id);
+
         EntityBuilder {
             world: self,
             entity_id,
@@ -150,6 +168,11 @@ impl World {
             archetype.allocate_row(entity_id);
         }
 
+        // Track entity creation for persistence
+        self.persistence
+            .change_tracker_mut()
+            .track_created(entity_id);
+
         entity_id
     }
 
@@ -177,6 +200,9 @@ impl World {
         if !self.entities.is_alive(entity) {
             return false;
         }
+
+        // Track entity deletion for persistence
+        self.persistence.change_tracker_mut().track_deleted(entity);
 
         // Remove from archetype
         if let Some(location) = self.archetypes.get_entity_location(entity)
@@ -280,6 +306,8 @@ impl World {
     pub fn clear(&mut self) {
         self.entities.clear();
         self.archetypes = ArchetypeManager::new();
+        self.persistence = PersistenceManager::new();
+        self.metadata = WorldMetadata::new(1, 0, Vec::new());
     }
 
     /// Returns a reference to the command buffer.
@@ -313,6 +341,169 @@ impl World {
     /// ```
     pub fn apply_commands(&mut self) {
         self.commands.apply(&mut self.entities);
+    }
+
+    /// Returns a reference to the persistence manager.
+    ///
+    /// Use this to register custom persistence plugins or configure
+    /// persistence behavior.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let mut world = World::new();
+    /// world.persistence().register_plugin("custom", Box::new(MyPlugin));
+    /// ```
+    pub fn persistence(&mut self) -> &mut PersistenceManager {
+        &mut self.persistence
+    }
+
+    /// Returns a reference to the world metadata.
+    ///
+    /// Metadata includes version information, timestamps, and component
+    /// type registry for persistence operations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::World;
+    ///
+    /// let world = World::new();
+    /// let metadata = world.metadata();
+    /// assert_eq!(metadata.version, 1);
+    /// ```
+    pub fn metadata(&self) -> &WorldMetadata {
+        &self.metadata
+    }
+
+    /// Returns a mutable reference to the world metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::World;
+    ///
+    /// let mut world = World::new();
+    /// world.metadata_mut().custom.insert("key".to_string(), "value".to_string());
+    /// ```
+    pub fn metadata_mut(&mut self) -> &mut WorldMetadata {
+        &mut self.metadata
+    }
+
+    /// Saves the world to a file using the default persistence plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to save the world to
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default plugin is registered
+    /// - File cannot be created
+    /// - Serialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::new();
+    /// world.save("world.pecs")?;
+    /// ```
+    pub fn save(&self, path: impl AsRef<std::path::Path>) -> crate::persistence::Result<()> {
+        // Update metadata before saving
+        let mut metadata = self.metadata.clone();
+        metadata.entity_count = self.len();
+        metadata.timestamp = WorldMetadata::current_timestamp();
+
+        self.persistence.save(self, path)
+    }
+
+    /// Saves the world using a specific persistence plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to save the world to
+    /// * `plugin_name` - Name of the plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - File cannot be created
+    /// - Serialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::new();
+    /// world.save_with("world.json", "json")?;
+    /// ```
+    pub fn save_with(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        plugin_name: &str,
+    ) -> crate::persistence::Result<()> {
+        self.persistence.save_with(self, path, plugin_name)
+    }
+
+    /// Loads a world from a file using the default persistence plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to load the world from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default plugin is registered
+    /// - File cannot be opened
+    /// - Deserialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::load("world.pecs")?;
+    /// ```
+    pub fn load(path: impl AsRef<std::path::Path>) -> crate::persistence::Result<Self> {
+        let persistence = PersistenceManager::new();
+        persistence.load(path)
+    }
+
+    /// Loads a world from a file using a specific persistence plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to load the world from
+    /// * `plugin_name` - Name of the plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - File cannot be opened
+    /// - Deserialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::load_with("world.json", "json")?;
+    /// ```
+    pub fn load_with(
+        path: impl AsRef<std::path::Path>,
+        plugin_name: &str,
+    ) -> crate::persistence::Result<Self> {
+        let persistence = PersistenceManager::new();
+        persistence.load_with(path, plugin_name)
     }
 }
 
