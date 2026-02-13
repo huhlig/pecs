@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-13
 **Current Phase**: Phase 1 - Core ECS
-**Overall Progress**: 12.5%
+**Overall Progress**: 25%
 
 ---
 
@@ -20,7 +20,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 
 | Phase | Name | Status | Progress | Start Date | Target End Date |
 |-------|------|--------|----------|------------|-----------------|
-| 1 | Core ECS | 🟡 In Progress | 12.5% | 2026-02-13 | Month 2 |
+| 1 | Core ECS | 🟡 In Progress | 25% | 2026-02-13 | Month 2 |
 | 2 | Persistence | ⚪ Planned | 0% | Month 3 | Month 4 |
 | 3 | Polish & Optimization | ⚪ Planned | 0% | Month 5 | Month 6 |
 | 4 | Release | ⚪ Planned | 0% | Month 6+ | TBD |
@@ -34,7 +34,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 ### Phase 1: Core ECS (Months 1-2)
 
 **Status**: 🟡 In Progress
-**Progress**: 12.5%
+**Progress**: 25%
 
 #### Objectives
 - Implement entity and component management
@@ -43,10 +43,10 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 
 #### Key Deliverables
 - [x] Entity Manager with ID generation ✅
-- [ ] Component storage system
+- [x] Component storage system ✅
 - [ ] Query interface
 - [ ] Command buffer implementation
-- [x] Basic test suite (34 tests passing) ✅
+- [x] Test suite (55 tests passing) ✅
 
 **See**: [Phase 1 Development Plan](./PHASE_1_CORE_ECS.md)
 
@@ -56,7 +56,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 
 ### Phase 1 Milestones
 - [x] M1.1: Entity Manager Complete (Week 2) ✅ 2026-02-13
-- [ ] M1.2: Component Storage Complete (Week 4)
+- [x] M1.2: Component Storage Complete (Week 4) ✅ 2026-02-13
 - [ ] M1.3: Query System Complete (Week 6)
 - [ ] M1.4: Command Buffers Complete (Week 8)
 
@@ -93,8 +93,8 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - Zero critical bugs in production
 
 ### Current Metrics
-- Test coverage: ~85% (34 tests passing, entity module fully tested)
-- Documentation coverage: 100% of entity module public API
+- Test coverage: ~85% (55 tests passing, entity and component modules fully tested)
+- Documentation coverage: 100% of entity and component module public APIs
 - Performance: Not benchmarked yet (deferred to optimization phase)
 
 ---
@@ -150,9 +150,14 @@ None currently open.
 - ✅ Implemented entity ID system (EntityId, StableId)
 - ✅ Implemented entity allocator with ID recycling
 - ✅ Implemented EntityManager with full lifecycle management
-- ✅ Added comprehensive tests (34 tests, all passing)
-- ✅ Added complete rustdoc documentation
 - ✅ Milestone M1.1 Complete: Entity Manager ✅
+- ✅ Implemented Component trait and type system
+- ✅ Implemented ComponentStorage with type-erased arrays
+- ✅ Implemented Archetype with SoA layout
+- ✅ Implemented ArchetypeManager with entity location tracking
+- ✅ Added 21 new tests for component system (55 total, all passing)
+- ✅ Added complete rustdoc documentation for component module
+- ✅ Milestone M1.2 Complete: Component Storage ✅
 
 ---
 
@@ -162,10 +167,11 @@ None currently open.
 2. ✅ ~~Initialize project structure~~
 3. ✅ ~~Begin Phase 1: Entity Manager implementation~~
 4. ✅ ~~Set up testing framework~~
-5. Begin Week 3-4: Component Storage implementation
-6. Design component storage architecture
-7. Implement archetype-based storage
-8. Configure CI/CD pipeline (deferred)
+5. ✅ ~~Week 3-4: Component Storage implementation~~
+6. Begin Week 5-6: Query System implementation
+7. Design query API with type-safe access
+8. Implement query iteration over archetypes
+9. Configure CI/CD pipeline (deferred)
 
 ---
 

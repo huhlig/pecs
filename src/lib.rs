@@ -43,9 +43,11 @@
 //! - `command`: Thread-safe command buffers (coming soon)
 //! - `world`: Top-level ECS world (coming soon)
 
+pub mod component;
 pub mod entity;
 
 // Re-export commonly used types
+pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
 
 #[cfg(test)]
