@@ -529,6 +529,57 @@ impl ArchetypeManager {
     pub fn is_empty(&self) -> bool {
         self.archetypes.is_empty()
     }
+
+    /// Moves an entity from one archetype to another with additional component data.
+    ///
+    /// This is a helper method that handles the borrow checker complexity of
+    /// accessing two archetypes simultaneously.
+    ///
+    /// # Safety
+    ///
+    /// - `entity` must exist in the source archetype
+    /// - `component_data` must contain valid component pointers
+    /// - The target archetype must have the correct component types
+    pub unsafe fn move_entity_between_archetypes(
+        &mut self,
+        entity: EntityId,
+        source_id: ArchetypeId,
+        target_id: ArchetypeId,
+        component_data: &[(ComponentTypeId, *const u8)],
+    ) -> Option<usize> {
+        let source_idx = source_id.index();
+        let target_idx = target_id.index();
+
+        if source_idx == target_idx {
+            // Same archetype - just update components in place
+            if let Some(archetype) = self.archetypes.get_mut(source_idx) {
+                let row = archetype.get_entity_row(entity)?;
+                for (component_type, component_ptr) in component_data {
+                    // SAFETY: Caller ensures component_ptr is valid
+                    unsafe {
+                        archetype.set_component(row, *component_type, *component_ptr);
+                    }
+                }
+                return Some(row);
+            }
+            return None;
+        }
+
+        // Different archetypes - need to move entity
+        if source_idx < target_idx {
+            let (left, right) = self.archetypes.split_at_mut(target_idx);
+            let source = &mut left[source_idx];
+            let target = &mut right[0];
+            // SAFETY: Caller ensures entity exists and component_data is valid
+            unsafe { source.move_entity_to(entity, target, component_data) }
+        } else {
+            let (left, right) = self.archetypes.split_at_mut(source_idx);
+            let target = &mut left[target_idx];
+            let source = &mut right[0];
+            // SAFETY: Caller ensures entity exists and component_data is valid
+            unsafe { source.move_entity_to(entity, target, component_data) }
+        }
+    }
 }
 
 impl Default for ArchetypeManager {

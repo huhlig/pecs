@@ -31,8 +31,7 @@
 //! ```
 
 use crate::component::Component;
-use crate::entity::{EntityId, EntityManager};
-use std::any::Any;
+use crate::entity::EntityId;
 
 /// A command that can be applied to the ECS world.
 ///
@@ -48,12 +47,18 @@ pub trait Command: Send {
     /// Applies this command to the world.
     ///
     /// This method consumes the command and applies its effects to the
-    /// provided entity manager and component storage.
+    /// provided world. The world parameter is passed as a mutable raw pointer
+    /// to avoid lifetime issues with the command buffer.
     ///
     /// # Arguments
     ///
-    /// * `manager` - The entity manager to apply the command to
-    fn apply(self: Box<Self>, manager: &mut EntityManager);
+    /// * `world` - Raw pointer to the world to apply the command to
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the world pointer is valid and that no other
+    /// references to the world exist during command application.
+    unsafe fn apply(self: Box<Self>, world: *mut crate::World);
 }
 
 /// A buffer for recording commands to be applied later.
@@ -201,10 +206,8 @@ impl CommandBuffer {
     /// buffer.insert(entity, Position { x: 0.0, y: 0.0 });
     /// ```
     pub fn insert<T: Component>(&mut self, entity: EntityId, component: T) {
-        self.commands.push(Box::new(InsertCommand {
-            entity,
-            component: Box::new(component),
-        }));
+        self.commands
+            .push(Box::new(InsertCommand { entity, component }));
     }
 
     /// Records a command to remove a component from an entity.
@@ -288,29 +291,30 @@ impl CommandBuffer {
     ///
     /// # Arguments
     ///
-    /// * `manager` - The entity manager to apply commands to
+    /// * `world` - The world to apply commands to
     ///
     /// # Examples
     ///
     /// ```
-    /// use pecs::command::CommandBuffer;
-    /// use pecs::entity::EntityManager;
+    /// use pecs::prelude::*;
     ///
+    /// let mut world = World::new();
     /// let mut buffer = CommandBuffer::new();
-    /// let mut manager = EntityManager::new();
     ///
     /// buffer.spawn();
     /// buffer.spawn();
-    /// buffer.apply(&mut manager);
+    /// buffer.apply(&mut world);
     ///
-    /// assert_eq!(manager.len(), 2);
+    /// assert_eq!(world.len(), 2);
     /// ```
-    pub fn apply(&mut self, manager: &mut EntityManager) {
+    pub fn apply(&mut self, world: &mut crate::World) {
         // Take ownership of commands to execute them
         let commands = std::mem::take(&mut self.commands);
 
         for command in commands {
-            command.apply(manager);
+            unsafe {
+                command.apply(world as *mut crate::World);
+            }
         }
 
         // Clear spawned entities tracking
@@ -330,8 +334,11 @@ impl Default for CommandBuffer {
 struct SpawnCommand;
 
 impl Command for SpawnCommand {
-    fn apply(self: Box<Self>, manager: &mut EntityManager) {
-        manager.spawn();
+    unsafe fn apply(self: Box<Self>, world: *mut crate::World) {
+        // SAFETY: Caller ensures world pointer is valid
+        unsafe {
+            (*world).spawn_empty();
+        }
     }
 }
 
@@ -341,22 +348,26 @@ struct DespawnCommand {
 }
 
 impl Command for DespawnCommand {
-    fn apply(self: Box<Self>, manager: &mut EntityManager) {
-        manager.despawn(self.entity);
+    unsafe fn apply(self: Box<Self>, world: *mut crate::World) {
+        // SAFETY: Caller ensures world pointer is valid
+        unsafe {
+            (*world).despawn(self.entity);
+        }
     }
 }
 
 /// Command to insert a component on an entity.
-struct InsertCommand {
+struct InsertCommand<T: Component> {
     entity: EntityId,
-    component: Box<dyn Any + Send>,
+    component: T,
 }
 
-impl Command for InsertCommand {
-    fn apply(self: Box<Self>, _manager: &mut EntityManager) {
-        // TODO: This will need access to component storage
-        // For now, we just acknowledge the command
-        let _ = (self.entity, self.component);
+impl<T: Component> Command for InsertCommand<T> {
+    unsafe fn apply(self: Box<Self>, world: *mut crate::World) {
+        // SAFETY: Caller ensures world pointer is valid
+        unsafe {
+            (*world).insert(self.entity, self.component);
+        }
     }
 }
 
@@ -367,10 +378,11 @@ struct RemoveCommand<T: Component> {
 }
 
 impl<T: Component> Command for RemoveCommand<T> {
-    fn apply(self: Box<Self>, _manager: &mut EntityManager) {
-        // TODO: This will need access to component storage
-        // For now, we just acknowledge the command
-        let _ = self.entity;
+    unsafe fn apply(self: Box<Self>, world: *mut crate::World) {
+        // SAFETY: Caller ensures world pointer is valid
+        unsafe {
+            (*world).remove::<T>(self.entity);
+        }
     }
 }
 
@@ -394,57 +406,57 @@ mod tests {
     #[test]
     fn spawn_command() {
         let mut buffer = CommandBuffer::new();
-        let mut manager = EntityManager::new();
+        let mut world = crate::World::new();
 
         buffer.spawn();
         assert_eq!(buffer.len(), 1);
 
-        buffer.apply(&mut manager);
-        assert_eq!(manager.len(), 1);
+        buffer.apply(&mut world);
+        assert_eq!(world.len(), 1);
         assert!(buffer.is_empty());
     }
 
     #[test]
     fn multiple_spawn_commands() {
         let mut buffer = CommandBuffer::new();
-        let mut manager = EntityManager::new();
+        let mut world = crate::World::new();
 
         buffer.spawn();
         buffer.spawn();
         buffer.spawn();
         assert_eq!(buffer.len(), 3);
 
-        buffer.apply(&mut manager);
-        assert_eq!(manager.len(), 3);
+        buffer.apply(&mut world);
+        assert_eq!(world.len(), 3);
     }
 
     #[test]
     fn despawn_command() {
         let mut buffer = CommandBuffer::new();
-        let mut manager = EntityManager::new();
+        let mut world = crate::World::new();
 
-        let entity = manager.spawn();
-        assert!(manager.is_alive(entity));
+        let entity = world.spawn_empty();
+        assert!(world.is_alive(entity));
 
         buffer.despawn(entity);
-        buffer.apply(&mut manager);
+        buffer.apply(&mut world);
 
-        assert!(!manager.is_alive(entity));
-        assert_eq!(manager.len(), 0);
+        assert!(!world.is_alive(entity));
+        assert_eq!(world.len(), 0);
     }
 
     #[test]
     fn mixed_commands() {
         let mut buffer = CommandBuffer::new();
-        let mut manager = EntityManager::new();
+        let mut world = crate::World::new();
 
-        let e1 = manager.spawn();
+        let e1 = world.spawn_empty();
         buffer.spawn();
         buffer.despawn(e1);
         buffer.spawn();
 
-        buffer.apply(&mut manager);
-        assert_eq!(manager.len(), 2); // e1 despawned, 2 new spawned
+        buffer.apply(&mut world);
+        assert_eq!(world.len(), 2); // e1 despawned, 2 new spawned
     }
 
     #[test]
@@ -461,15 +473,15 @@ mod tests {
     #[test]
     fn reuse_buffer() {
         let mut buffer = CommandBuffer::new();
-        let mut manager = EntityManager::new();
+        let mut world = crate::World::new();
 
         buffer.spawn();
-        buffer.apply(&mut manager);
-        assert_eq!(manager.len(), 1);
+        buffer.apply(&mut world);
+        assert_eq!(world.len(), 1);
 
         buffer.spawn();
-        buffer.apply(&mut manager);
-        assert_eq!(manager.len(), 2);
+        buffer.apply(&mut world);
+        assert_eq!(world.len(), 2);
     }
 
     #[test]

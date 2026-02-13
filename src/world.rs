@@ -340,7 +340,10 @@ impl World {
     /// assert_eq!(world.len(), 1);
     /// ```
     pub fn apply_commands(&mut self) {
-        self.commands.apply(&mut self.entities);
+        // Take the command buffer temporarily to avoid borrow checker issues
+        let mut commands = std::mem::take(&mut self.commands);
+        commands.apply(self);
+        self.commands = commands;
     }
 
     /// Returns a reference to the persistence manager.
@@ -486,44 +489,48 @@ impl World {
             }
 
             // Need to move to new archetype with added component
-            // First, collect all existing component types
-            let mut new_component_types = self
+            // First, collect all existing component types and their info
+            let (mut new_component_types, mut component_info) = self
                 .archetypes
                 .get_archetype(current_archetype_id)
-                .map(|a| a.component_types().clone())
+                .map(|a| {
+                    let types = a.component_types().clone();
+                    let mut infos = Vec::new();
+                    // Collect ComponentInfo for existing types
+                    for type_id in types.iter() {
+                        if let Some(storage) = a.get_storage(type_id) {
+                            infos.push(storage.info().clone());
+                        }
+                    }
+                    (types, infos)
+                })
                 .unwrap_or_default();
 
+            // Add the new component type
             new_component_types.insert(component_type_id);
-
-            // Collect component info for all types in the new archetype
-            let mut component_info = Vec::new();
-            for type_id in new_component_types.iter() {
-                // For now, we only have info for the new component
-                // In a full implementation, we'd need a component registry
-                if type_id == component_type_id {
-                    component_info.push(crate::component::ComponentInfo::of::<T>());
-                }
-            }
+            component_info.push(crate::component::ComponentInfo::of::<T>());
 
             // Get or create target archetype
             let target_archetype_id = self
                 .archetypes
                 .get_or_create_archetype(new_component_types, component_info);
 
-            // Remove from old archetype first
-            if let Some(old_archetype) = self.archetypes.get_archetype_mut(current_archetype_id) {
-                old_archetype.remove_entity(entity);
-            }
+            // Prepare component data for the new component
+            let component_ptr = &component as *const T as *const u8;
+            let component_data = vec![(component_type_id, component_ptr)];
 
-            // Allocate in new archetype and add component
-            if let Some(archetype) = self.archetypes.get_archetype_mut(target_archetype_id) {
-                let row = archetype.allocate_row(entity);
-                let component_ptr = &component as *const T as *const u8;
-                unsafe {
-                    archetype.set_component(row, component_type_id, component_ptr);
-                }
+            // Move entity to new archetype (this copies existing components)
+            let target_row = unsafe {
+                self.archetypes.move_entity_between_archetypes(
+                    entity,
+                    current_archetype_id,
+                    target_archetype_id,
+                    &component_data,
+                )
+            };
 
-                // Update entity location
+            // Update entity location
+            if let Some(row) = target_row {
                 self.archetypes.set_entity_location(
                     entity,
                     crate::component::archetype::EntityLocation {
@@ -1358,6 +1365,7 @@ mod tests {
     impl Component for Position {}
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct Velocity {
         x: f32,
         y: f32,
