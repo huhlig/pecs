@@ -21,7 +21,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 | Phase | Name | Status | Progress | Start Date | End Date |
 |-------|------|--------|----------|------------|----------|
 | 1 | Core ECS | 🟢 Complete | 100% | 2026-02-13 | 2026-02-13 |
-| 2 | Persistence | 🟡 In Progress | 30% | 2026-02-13 | TBD |
+| 2 | Persistence | 🟡 In Progress | 25% | 2026-02-13 | TBD |
 | 3 | Polish & Optimization | ⚪ Planned | 0% | TBD | TBD |
 | 4 | Release | ⚪ Planned | 0% | TBD | TBD |
 
@@ -34,7 +34,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 ### Phase 2: Persistence (Started 2026-02-13)
 
 **Status**: 🟡 In Progress
-**Progress**: 30%
+**Progress**: 25%
 **Current Branch**: phase-2-persistence
 
 #### Objectives
@@ -46,22 +46,37 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - Support delta/incremental persistence for databases
 
 #### Current Focus
-**Week 1-2: Persistence Manager**
-- Task 1.1: Design persistence architecture ✅ Complete
-- Task 1.2: Implement Persistence Manager ✅ Complete
-- Task 1.3: Implement metadata system (Next - 80% complete)
+**Week 1-2: Persistence Manager** ✅ Complete
 
-#### Completed
+#### Week 1-2 Completed Tasks
+- ✅ Task 1.1: Design persistence architecture
+- ✅ Task 1.2: Implement Persistence Manager
+- ✅ Task 1.3: Implement metadata system
+- ✅ Task 1.4: Stable ID integration
+- ✅ Task 1.5: Testing and documentation
+
+#### Completed Features
 - ✅ Persistence trait architecture with database support
 - ✅ DeltaPersistencePlugin for incremental updates
 - ✅ EntityChange tracking system
 - ✅ ChangeTracker for automatic delta detection
 - ✅ WorldMetadata and ComponentTypeInfo
-- ✅ Comprehensive error handling
+- ✅ Comprehensive error handling (PersistenceError, EntityError)
 - ✅ PersistenceManager with plugin registration
 - ✅ Save/load coordination with file I/O
 - ✅ Delta persistence support
 - ✅ Migration system infrastructure
+- ✅ Stable ID integration for persistence
+  - ✅ allocate_with_stable_id() for loading entities
+  - ✅ remap_stable_id() for conflict resolution
+  - ✅ iter() for entity/stable ID iteration
+- ✅ 107 tests passing with comprehensive coverage
+
+#### Next Focus
+**Week 3-4: Binary Format Implementation**
+- Task 2.1: Design binary format specification
+- Task 2.2: Implement serialization
+- Task 2.3: Implement deserialization
 
 ### Phase 1: Core ECS (Completed 2026-02-13)
 
@@ -96,7 +111,7 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - [x] M1.5: World Integration Complete ✅ 2026-02-13
 
 ### Phase 2 Milestones
-- [ ] M2.1: Persistence Manager Complete
+- [x] M2.1: Persistence Manager Complete ✅ 2026-02-13
 - [ ] M2.2: Binary Format Implementation
 - [ ] M2.3: Save/Load Functionality
 - [ ] M2.4: Plugin System
@@ -128,8 +143,8 @@ PECS (Persistent Entity Component System) is a high-performance, minimalist ECS 
 - Zero critical bugs in production
 
 ### Current Metrics
-- Test coverage: ~90% (94 tests passing, all core modules fully tested)
-- Documentation coverage: 100% of all public APIs (entity, component, query, command, world)
+- Test coverage: ~90% (107 tests passing, all core modules fully tested)
+- Documentation coverage: 100% of all public APIs (entity, component, query, command, world, persistence)
 - Performance: Not benchmarked yet (deferred to Phase 3)
 
 ---
@@ -229,7 +244,14 @@ None currently open.
 - ✅ Implemented delta persistence support with change tracking
 - ✅ Added migration system infrastructure
 - ✅ Added 2 new tests for manager (96 total, all passing)
-- 🟡 Task 1.3 In Progress: Metadata system (80% complete, needs World integration)
+- ✅ Task 1.3 Complete: Metadata system with World integration
+- ✅ Task 1.4 Complete: Stable ID integration for persistence
+- ✅ Implemented EntityError type for proper error handling
+- ✅ Implemented allocate_with_stable_id() for loading entities with specific stable IDs
+- ✅ Implemented remap_stable_id() for resolving ID conflicts during load
+- ✅ Added iter() method to iterate over all entities with their stable IDs
+- ✅ Added 7 new tests for stable ID functionality (107 total, all passing)
+- ✅ **Milestone M2.1 Complete: Persistence Manager** ✅ 2026-02-13
 
 ---
 
@@ -248,7 +270,8 @@ None currently open.
 11. ✅ ~~Complete Phase 1 documentation~~
 12. 🟡 **Begin Phase 2: Persistence** (In Progress)
     - ✅ Created phase-2-persistence branch
-    - 🟡 Week 1-2: Persistence Manager (Current)
+    - ✅ Week 1-2: Persistence Manager (Complete)
+    - 🟡 Week 3-4: Binary Format Implementation (Next)
 13. Configure CI/CD pipeline (deferred)
 
 ---
@@ -257,12 +280,14 @@ None currently open.
 
 - **Phase 1 Complete!** 🎉 (100% complete, 2026-02-13)
 - All core ECS functionality implemented and tested
-- 94 tests passing with excellent coverage (~90%)
 - Code is clean, well-documented, and ready for Phase 2
 - Completed ahead of schedule (all in one day!)
 - **Phase 2 Started!** 🚀 (2026-02-13)
 - Working on phase-2-persistence branch
-- Focus: Week 1-2 - Persistence Manager implementation
+- **Milestone M2.1 Complete!** ✅ (2026-02-13)
+- Week 1-2: Persistence Manager - Complete
+- 107 tests passing with excellent coverage (~90%)
+- Focus: Week 3-4 - Binary Format Implementation (Next)
 - All phases are subject to adjustment based on progress
 - Regular status updates will be made as development progresses
 - Community feedback will be incorporated throughout development
