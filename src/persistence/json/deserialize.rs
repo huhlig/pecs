@@ -13,11 +13,13 @@ struct JsonWorld {
     version: u32,
     /// Timestamp when saved
     #[serde(default)]
+    #[allow(dead_code)]
     timestamp: String,
     /// Number of entities
     entity_count: usize,
     /// Component type information (optional)
     #[serde(default)]
+    #[allow(dead_code)]
     types: Option<Vec<TypeInfo>>,
     /// Entity data
     entities: Vec<EntityData>,
@@ -25,6 +27,7 @@ struct JsonWorld {
 
 /// Component type information.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct TypeInfo {
     /// Type name
     name: String,
@@ -39,6 +42,7 @@ struct EntityData {
     id: String,
     /// Component data (placeholder - will be empty for now)
     #[serde(default)]
+    #[allow(dead_code)]
     components: serde_json::Map<String, serde_json::Value>,
 }
 

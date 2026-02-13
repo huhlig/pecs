@@ -109,7 +109,6 @@ pub(super) fn serialize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
 
     #[test]
     fn test_serialize_empty_world() {
@@ -185,8 +184,8 @@ mod tests {
     #[test]
     fn test_serialize_entity_ids() {
         let mut world = World::new();
-        let entity1 = world.spawn().id();
-        let entity2 = world.spawn().id();
+        let _entity1 = world.spawn().id();
+        let _entity2 = world.spawn().id();
 
         let mut buffer = Vec::new();
         serialize(&world, &mut buffer, false, false).unwrap();
