@@ -13,21 +13,32 @@
 //! # Quick Start
 //!
 //! ```
-//! use pecs::entity::EntityManager;
+//! use pecs::prelude::*;
 //!
-//! // Create an entity manager
-//! let mut manager = EntityManager::new();
+//! // Define components
+//! #[derive(Debug)]
+//! struct Position { x: f32, y: f32 }
+//! impl Component for Position {}
 //!
-//! // Spawn entities
-//! let entity1 = manager.spawn();
-//! let entity2 = manager.spawn();
+//! #[derive(Debug)]
+//! struct Velocity { x: f32, y: f32 }
+//! impl Component for Velocity {}
 //!
-//! // Check if entities are alive
-//! assert!(manager.is_alive(entity1));
+//! // Create a world
+//! let mut world = World::new();
+//!
+//! // Spawn entities with components
+//! let entity = world.spawn()
+//!     .with(Position { x: 0.0, y: 0.0 })
+//!     .with(Velocity { x: 1.0, y: 0.0 })
+//!     .id();
+//!
+//! // Check if entity is alive
+//! assert!(world.is_alive(entity));
 //!
 //! // Despawn an entity
-//! manager.despawn(entity1);
-//! assert!(!manager.is_alive(entity1));
+//! world.despawn(entity);
+//! assert!(!world.is_alive(entity));
 //! ```
 //!
 //! # Architecture
@@ -41,18 +52,30 @@
 //! - [`component`]: Component storage and management
 //! - [`query`]: Type-safe component queries
 //! - [`command`]: Thread-safe command buffers
-//! - `world`: Top-level ECS world (coming soon)
+//! - [`world`]: Top-level ECS world
 
 pub mod command;
 pub mod component;
 pub mod entity;
 pub mod query;
+pub mod world;
+
+/// Convenient re-exports for common types.
+///
+/// Use `use pecs::prelude::*;` to import all commonly used types.
+pub mod prelude {
+    pub use crate::command::{Command, CommandBuffer};
+    pub use crate::component::Component;
+    pub use crate::entity::{EntityId, StableId};
+    pub use crate::world::World;
+}
 
 // Re-export commonly used types
 pub use command::{Command, CommandBuffer};
 pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
 pub use query::{Fetch, Filter, Query};
+pub use world::World;
 
 #[cfg(test)]
 mod tests {
