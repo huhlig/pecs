@@ -211,9 +211,61 @@ Created comprehensive documentation: `docs/dev/TASK_1.3_COMPONENT_STORAGE_OPTIMI
 
 Created comprehensive documentation: `docs/dev/TASK_1.4_QUERY_OPTIMIZATION.md`
 
+### Task 1.5: Bug Fix - Sequential Insert Component Copying ✅
+
+**Status**: Complete
+**Date**: 2026-02-13
+
+#### Issue Identified
+
+Sequential `insert()` calls were not properly copying existing components during archetype transitions. When adding a second component to an entity, the first component would be lost.
+
+#### Root Cause
+
+The `World::insert` method was:
+1. Removing entity from old archetype
+2. Allocating row in new archetype
+3. Only setting the NEW component
+4. **Not copying existing components from old archetype**
+
+#### Deliverables
+
+1. **Fixed World::insert Method** (`src/world.rs`)
+   - Modified archetype transition logic to collect ComponentInfo from existing components
+   - Properly copies all existing components during archetype transitions
+   - Components now preserved when adding new components to entities
+
+2. **Added ArchetypeManager Helper Method** (`src/component/archetype.rs`)
+   - Created `move_entity_between_archetypes()` method
+   - Handles borrow checker complexity with split_at_mut
+   - Safely moves entities between archetypes while copying all components
+
+3. **Updated Command System** (`src/command/mod.rs`)
+   - Changed Command trait to work with World instead of just EntityManager
+   - Updated InsertCommand to be generic over component type
+   - Fixed SpawnCommand, DespawnCommand, and RemoveCommand to work with World
+   - Updated CommandBuffer::apply to work with World reference
+
+4. **Comprehensive Test Suite** (`tests/sequential_insert_test.rs`)
+   - 6 new tests covering sequential insert scenarios
+   - Tests verify component preservation across archetype transitions
+   - Tests cover 2-component, 3-component, and multiple entity scenarios
+   - Tests verify command buffer integration
+
+#### Results
+
+- ✅ All 183 tests pass (including 6 new sequential insert tests)
+- ✅ Code passes clippy with no warnings
+- ✅ Code properly formatted
+- ✅ Sequential insert() calls now properly preserve existing components
+
+#### Impact
+
+This fix is critical for proper ECS functionality. Without it, entities could not have multiple components added sequentially, which is a fundamental ECS operation.
+
 ## Next Steps
 
-### Immediate (Task 1.5 - Persistence Optimization)
+### Immediate (Task 1.6 - Persistence Optimization)
 
 1. **Profile persistence operations**
    - Analyze serialization performance
@@ -231,7 +283,8 @@ Created comprehensive documentation: `docs/dev/TASK_1.4_QUERY_OPTIMIZATION.md`
 - [x] Task 1.2: Entity system optimization ✅
 - [x] Task 1.3: Component storage optimization ✅
 - [x] Task 1.4: Query optimization ✅
-- [ ] Task 1.5: Persistence optimization (Next)
+- [x] Task 1.5: Bug fix - Sequential insert component copying ✅
+- [ ] Task 1.6: Persistence optimization (Next)
 
 ### Week 7-8 (API Refinement)
 
