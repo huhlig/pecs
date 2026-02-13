@@ -34,6 +34,26 @@ pub mod id;
 pub use allocator::EntityAllocator;
 pub use id::{EntityId, StableId};
 
+/// Error type for entity operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityError {
+    /// The entity does not exist or is invalid.
+    InvalidEntity,
+    /// The stable ID is already in use.
+    DuplicateStableId,
+}
+
+impl std::fmt::Display for EntityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EntityError::InvalidEntity => write!(f, "Invalid entity"),
+            EntityError::DuplicateStableId => write!(f, "Stable ID already in use"),
+        }
+    }
+}
+
+impl std::error::Error for EntityError {}
+
 /// High-level entity manager that coordinates entity lifecycle operations.
 ///
 /// The `EntityManager` provides a convenient interface for:
@@ -320,6 +340,91 @@ impl EntityManager {
         // need to be added to EntityAllocator
         let _ = additional;
     }
+
+    /// Spawns an entity with a specific stable ID.
+    ///
+    /// This is used during deserialization to restore entities with their
+    /// original stable IDs. If the stable ID already exists, this returns
+    /// an error to prevent ID conflicts.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID to use for the entity
+    ///
+    /// # Returns
+    ///
+    /// The ephemeral ID for the entity, or an error if the stable ID is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::{EntityManager, StableId};
+    ///
+    /// let mut manager = EntityManager::new();
+    /// let stable_id = StableId::from_raw(12345);
+    /// let entity_id = manager.spawn_with_id(stable_id).unwrap();
+    /// assert_eq!(manager.get_stable_id(entity_id), Some(stable_id));
+    /// ```
+    pub fn spawn_with_id(&mut self, stable_id: StableId) -> Result<EntityId, EntityError> {
+        self.allocator.allocate_with_stable_id(stable_id)
+    }
+
+    /// Remaps an existing entity to a new stable ID.
+    ///
+    /// This is useful for resolving ID conflicts during load operations.
+    /// The old stable ID mapping is removed and replaced with the new one.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity_id` - The entity to remap
+    /// * `new_stable_id` - The new stable ID to assign
+    ///
+    /// # Returns
+    ///
+    /// The old stable ID if successful, or an error if the entity is invalid
+    /// or the new stable ID is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::{EntityManager, StableId};
+    ///
+    /// let mut manager = EntityManager::new();
+    /// let (entity_id, old_stable_id) = manager.spawn_with_stable_id();
+    /// let new_stable_id = StableId::from_raw(99999);
+    ///
+    /// let remapped = manager.remap_stable_id(entity_id, new_stable_id).unwrap();
+    /// assert_eq!(remapped, old_stable_id);
+    /// assert_eq!(manager.get_stable_id(entity_id), Some(new_stable_id));
+    /// ```
+    pub fn remap_stable_id(
+        &mut self,
+        entity_id: EntityId,
+        new_stable_id: StableId,
+    ) -> Result<StableId, EntityError> {
+        self.allocator.remap_stable_id(entity_id, new_stable_id)
+    }
+
+    /// Returns an iterator over all alive entities and their stable IDs.
+    ///
+    /// This is useful for persistence operations that need to iterate
+    /// over all entities.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::EntityManager;
+    ///
+    /// let mut manager = EntityManager::new();
+    /// manager.spawn();
+    /// manager.spawn();
+    ///
+    /// let entities: Vec<_> = manager.iter().collect();
+    /// assert_eq!(entities.len(), 2);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = (EntityId, StableId)> + '_ {
+        self.allocator.iter()
+    }
 }
 
 impl Default for EntityManager {
@@ -351,6 +456,52 @@ mod tests {
         assert!(manager.is_alive(e2));
         assert!(manager.is_alive(e3));
         assert_eq!(manager.len(), 3);
+    }
+
+    #[test]
+    fn spawn_with_id() {
+        let mut manager = EntityManager::new();
+        let stable_id = StableId::from_raw(12345);
+
+        let entity_id = manager.spawn_with_id(stable_id).unwrap();
+        assert_eq!(manager.get_stable_id(entity_id), Some(stable_id));
+        assert_eq!(manager.get_entity_id(stable_id), Some(entity_id));
+    }
+
+    #[test]
+    fn spawn_with_duplicate_id() {
+        let mut manager = EntityManager::new();
+        let stable_id = StableId::from_raw(12345);
+
+        manager.spawn_with_id(stable_id).unwrap();
+        let result = manager.spawn_with_id(stable_id);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn remap_entity_stable_id() {
+        let mut manager = EntityManager::new();
+        let (entity_id, old_stable_id) = manager.spawn_with_stable_id();
+        let new_stable_id = StableId::from_raw(99999);
+
+        let remapped = manager.remap_stable_id(entity_id, new_stable_id).unwrap();
+        assert_eq!(remapped, old_stable_id);
+        assert_eq!(manager.get_stable_id(entity_id), Some(new_stable_id));
+        assert_eq!(manager.get_entity_id(new_stable_id), Some(entity_id));
+        assert_eq!(manager.get_entity_id(old_stable_id), None);
+    }
+
+    #[test]
+    fn iter_manager_entities() {
+        let mut manager = EntityManager::new();
+        let (e1, s1) = manager.spawn_with_stable_id();
+        let (e2, s2) = manager.spawn_with_stable_id();
+
+        let entities: Vec<_> = manager.iter().collect();
+        assert_eq!(entities.len(), 2);
+        assert!(entities.contains(&(e1, s1)));
+        assert!(entities.contains(&(e2, s2)));
     }
 
     #[test]

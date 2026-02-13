@@ -2,7 +2,7 @@
 
 **Phase Duration**: Months 3-4 (8 weeks)
 **Status**: 🟡 In Progress
-**Progress**: 15%
+**Progress**: 25%
 **Last Updated**: 2026-02-13
 **Branch**: phase-2-persistence
 
@@ -66,13 +66,16 @@ Phase 2 builds on the core ECS foundation from Phase 1 by adding comprehensive p
   - **Estimated**: 2 days
   - **Actual**: 1 day
 
-- [ ] **Task 1.4**: Stable ID integration
-  - Ensure stable IDs are used for persistence
-  - ID mapping during load
-  - Handle ID conflicts
+- [x] **Task 1.4**: Stable ID integration (Complete)
+  - [x] Ensure stable IDs are used for persistence
+  - [x] ID mapping during load (allocate_with_stable_id)
+  - [x] Handle ID conflicts (remap_stable_id, EntityError)
+  - [x] Added iterator for entity/stable ID pairs
+  - [x] Comprehensive test coverage
   - **Estimated**: 2 days
+  - **Actual**: 1 day
 
-- [ ] **Task 1.5**: Testing and documentation
+- [-] **Task 1.5**: Testing and documentation
   - Unit tests for manager
   - Integration tests with Phase 1
   - API documentation
