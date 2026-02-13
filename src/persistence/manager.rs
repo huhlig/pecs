@@ -362,9 +362,56 @@ impl PersistenceManager {
     /// Migrations are applied in order from the world's current version to the
     /// target version.
     fn apply_migrations(&self, world: &mut World) -> Result<()> {
-        // TODO: Implement migration chain execution
-        // For now, this is a placeholder
-        let _ = world;
+        if self.migrations.is_empty() {
+            return Ok(());
+        }
+
+        // Get current world version from metadata
+        let mut current_version = world.metadata().version;
+
+        // Find the target version (highest version among all migrations)
+        let target_version = self
+            .migrations
+            .iter()
+            .map(|m| m.target_version())
+            .max()
+            .unwrap_or(current_version);
+
+        // If we're already at the target version, no migration needed
+        if current_version >= target_version {
+            return Ok(());
+        }
+
+        // Build migration chain
+        while current_version < target_version {
+            // Find a migration that can upgrade from current_version
+            let migration = self
+                .migrations
+                .iter()
+                .find(|m| m.source_version() == current_version)
+                .ok_or_else(|| {
+                    PersistenceError::MigrationFailed(format!(
+                        "No migration found from version {} to {}",
+                        current_version, target_version
+                    ))
+                })?;
+
+            // Apply the migration
+            migration.migrate(world).map_err(|e| {
+                PersistenceError::MigrationFailed(format!(
+                    "Migration from v{} to v{} failed: {}",
+                    migration.source_version(),
+                    migration.target_version(),
+                    e
+                ))
+            })?;
+
+            current_version = migration.target_version();
+        }
+
+        // Update world metadata version
+        world.metadata_mut().version = current_version;
+
         Ok(())
     }
 

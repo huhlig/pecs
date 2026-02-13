@@ -33,12 +33,14 @@
 
 pub mod binary;
 pub mod error;
+pub mod json;
 pub mod manager;
 pub mod metadata;
 pub mod plugin;
 
 pub use binary::BinaryPlugin;
 pub use error::{PersistenceError, Result};
+pub use json::JsonPlugin;
 pub use manager::PersistenceManager;
 pub use metadata::{ChangeTracker, ComponentTypeInfo, WorldMetadata};
 pub use plugin::{
