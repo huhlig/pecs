@@ -164,7 +164,6 @@ impl BinarySerializer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
 
     #[test]
     fn test_serializer_creation() {
