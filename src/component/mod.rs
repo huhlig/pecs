@@ -288,18 +288,21 @@ mod tests {
     use super::*;
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestComponent1 {
         value: i32,
     }
     impl Component for TestComponent1 {}
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestComponent2 {
         value: f32,
     }
     impl Component for TestComponent2 {}
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestComponent3 {
         data: Vec<u8>,
     }

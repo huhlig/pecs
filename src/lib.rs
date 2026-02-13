@@ -38,17 +38,19 @@
 //! ## Core Modules
 //!
 //! - [`entity`]: Entity lifecycle management with dual ID system
-//! - `component`: Component storage and management (coming soon)
-//! - `query`: Type-safe component queries (coming soon)
+//! - [`component`]: Component storage and management
+//! - [`query`]: Type-safe component queries
 //! - `command`: Thread-safe command buffers (coming soon)
 //! - `world`: Top-level ECS world (coming soon)
 
 pub mod component;
 pub mod entity;
+pub mod query;
 
 // Re-export commonly used types
 pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
+pub use query::{Fetch, Filter, Query};
 
 #[cfg(test)]
 mod tests {

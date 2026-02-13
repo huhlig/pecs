@@ -90,6 +90,7 @@ pub struct Archetype {
     component_storage: HashMap<ComponentTypeId, ComponentStorage>,
 
     /// Component metadata in the same order as component_types
+    #[allow(dead_code)]
     component_info: Vec<ComponentInfo>,
 
     /// List of entities in this archetype
@@ -163,8 +164,67 @@ impl Archetype {
     }
 
     /// Checks if the archetype contains a specific component type.
-    pub fn has_component(&self, component_type: ComponentTypeId) -> bool {
+    pub fn has_component<T: super::Component>(&self) -> bool {
+        self.component_types.contains(ComponentTypeId::of::<T>())
+    }
+
+    /// Checks if the archetype contains a specific component type by ID.
+    pub fn has_component_by_id(&self, component_type: ComponentTypeId) -> bool {
         self.component_types.contains(component_type)
+    }
+
+    /// Gets an entity by its row index.
+    pub fn get_entity(&self, row: usize) -> Option<EntityId> {
+        self.entities.get(row).copied()
+    }
+
+    /// Gets a component for an entity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the entity exists in this archetype and has the component.
+    pub unsafe fn get_component<T: super::Component>(&self, entity: EntityId) -> Option<&T> {
+        let row = self.get_entity_row(entity)?;
+        let storage = self.get_storage(ComponentTypeId::of::<T>())?;
+        // SAFETY: Caller ensures entity exists and has component
+        unsafe {
+            let ptr = storage.get(row) as *const T;
+            Some(&*ptr)
+        }
+    }
+
+    /// Gets a mutable component for an entity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the entity exists in this archetype, has the component,
+    /// and that no other references to this component exist.
+    pub unsafe fn get_component_mut<T: super::Component>(
+        &mut self,
+        entity: EntityId,
+    ) -> Option<&mut T> {
+        let row = self.get_entity_row(entity)?;
+        let storage = self.get_storage_mut(ComponentTypeId::of::<T>())?;
+        // SAFETY: Caller ensures entity exists, has component, and access is exclusive
+        unsafe {
+            let ptr = storage.get_mut(row) as *mut T;
+            Some(&mut *ptr)
+        }
+    }
+
+    /// Gets a raw pointer to a component for an entity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the entity exists in this archetype and has the component.
+    pub unsafe fn get_component_ptr<T: super::Component>(
+        &self,
+        entity: EntityId,
+    ) -> Option<*mut u8> {
+        let row = self.get_entity_row(entity)?;
+        let storage = self.get_storage(ComponentTypeId::of::<T>())?;
+        // SAFETY: Caller ensures entity exists and has component
+        unsafe { Some(storage.get(row) as *mut u8) }
     }
 
     /// Gets the component storage for a specific type.
@@ -277,7 +337,7 @@ impl Archetype {
 
         // Copy shared components
         for component_type in self.component_types.iter() {
-            if target.has_component(component_type) {
+            if target.has_component_by_id(component_type) {
                 let src_storage = self.get_storage(component_type)?;
                 // SAFETY: row is valid for this archetype
                 unsafe {
@@ -289,7 +349,7 @@ impl Archetype {
 
         // Add new components
         for (component_type, component_ptr) in component_data {
-            if !self.has_component(*component_type) {
+            if !self.has_component_by_id(*component_type) {
                 // SAFETY: Caller ensures component_ptr is valid
                 unsafe {
                     target.set_component(target_row, *component_type, *component_ptr);
@@ -424,6 +484,7 @@ mod tests {
     use crate::component::Component;
 
     #[derive(Debug, Clone, Copy)]
+    #[allow(dead_code)]
     struct Position {
         x: f32,
         y: f32,
@@ -431,6 +492,7 @@ mod tests {
     impl Component for Position {}
 
     #[derive(Debug, Clone, Copy)]
+    #[allow(dead_code)]
     struct Velocity {
         x: f32,
         y: f32,
