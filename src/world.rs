@@ -33,7 +33,7 @@
 
 use crate::command::CommandBuffer;
 use crate::component::archetype::{ArchetypeId, ArchetypeManager};
-use crate::component::{Component, ComponentSet, ComponentTypeId};
+use crate::component::{Component, ComponentInfo, ComponentSet, ComponentTypeId};
 use crate::entity::{EntityId, EntityManager, StableId};
 use crate::persistence::{PersistenceManager, WorldMetadata};
 
@@ -1064,7 +1064,7 @@ pub struct EntityBuilder<'w> {
     entity_id: EntityId,
     #[allow(dead_code)]
     stable_id: StableId,
-    components: Vec<(ComponentTypeId, Box<dyn std::any::Any>)>,
+    components: Vec<(ComponentTypeId, ComponentInfo, Box<dyn std::any::Any>)>,
 }
 
 impl<'w> EntityBuilder<'w> {
@@ -1085,8 +1085,11 @@ impl<'w> EntityBuilder<'w> {
     ///     .id();
     /// ```
     pub fn with<T: Component>(mut self, component: T) -> Self {
-        self.components
-            .push((ComponentTypeId::of::<T>(), Box::new(component)));
+        self.components.push((
+            ComponentTypeId::of::<T>(),
+            ComponentInfo::of::<T>(),
+            Box::new(component),
+        ));
         self
     }
 
@@ -1116,18 +1119,14 @@ impl<'w> EntityBuilder<'w> {
             return self.entity_id;
         }
 
-        // Create component set
+        // Create component set and collect component info
         let mut component_types = ComponentSet::new();
+        let mut component_info = Vec::new();
 
-        for (type_id, _) in &self.components {
+        for (type_id, info, _component) in &self.components {
             component_types.insert(*type_id);
+            component_info.push(info.clone());
         }
-
-        // Get component info for each type
-        // Note: This is a simplified version. In a real implementation,
-        // we'd need a registry to look up ComponentInfo by TypeId
-        // For now, we'll create a minimal archetype
-        let component_info = Vec::new();
 
         // Get or create archetype
         let archetype_id = self
@@ -1135,9 +1134,18 @@ impl<'w> EntityBuilder<'w> {
             .archetypes
             .get_or_create_archetype(component_types, component_info);
 
-        // Add entity to archetype
+        // Add entity to archetype and store components
         if let Some(archetype) = self.world.archetypes.get_archetype_mut(archetype_id) {
-            archetype.allocate_row(self.entity_id);
+            let row = archetype.allocate_row(self.entity_id);
+
+            // Store each component in the archetype
+            for (type_id, _info, component) in self.components {
+                // SAFETY: We just allocated the row and the component type exists in the archetype
+                unsafe {
+                    let component_ptr = &*component as *const dyn std::any::Any as *const u8;
+                    archetype.set_component(row, type_id, component_ptr);
+                }
+            }
         }
 
         self.entity_id

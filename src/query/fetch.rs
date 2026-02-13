@@ -38,7 +38,12 @@ impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     #[inline(always)]
     unsafe fn fetch(archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         // SAFETY: Caller ensures entity exists and archetype matches
-        unsafe { archetype.get_component::<T>(entity).unwrap_unchecked() }
+        // The archetype must have this component type (verified by matches_archetype)
+        unsafe {
+            archetype
+                .get_component::<T>(entity)
+                .expect("Entity must have component in matching archetype")
+        }
     }
 }
 
@@ -65,8 +70,11 @@ impl<'a, T: Component> Fetch<'a> for FetchWrite<T> {
     #[inline(always)]
     unsafe fn fetch(archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         // SAFETY: Caller ensures entity exists, archetype matches, and access is exclusive
+        // The archetype must have this component type (verified by matches_archetype)
         unsafe {
-            let ptr = archetype.get_component_ptr::<T>(entity).unwrap_unchecked();
+            let ptr = archetype
+                .get_component_ptr::<T>(entity)
+                .expect("Entity must have component in matching archetype");
             &mut *(ptr as *mut T)
         }
     }

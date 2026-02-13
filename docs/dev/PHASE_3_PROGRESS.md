@@ -571,4 +571,136 @@ Deferred until Week 7-8:
 
 **Recommendation**: Proceed to Week 7-8 API refinement to complete the missing APIs, then return to create the remaining examples and tutorials.
 
+
+---
+
+## Week 7-8: API Refinement and Beta Preparation (IN PROGRESS)
+
+**Status**: 🔴 BLOCKED - Critical query system bug discovered  
+**Date Started**: 2026-02-13
+
+### Task 4.1: Internal API Testing ⚠️ PARTIAL
+
+**Status**: In Progress - Critical issues discovered  
+**Date**: 2026-02-13
+
+#### Deliverables Completed
+
+1. **Query Trait Implementation** ✅
+   - Created `src/query/query_impl.rs`
+   - Implemented Query for `&T`, `&mut T`, `Option<&T>`, `EntityId`
+   - Implemented Query for tuples up to 8 elements
+   - All 189 tests passing
+
+2. **API Testing Documentation** ✅
+   - Created `docs/dev/TASK_4.1_API_TESTING_FINDINGS.md`
+   - Documented critical API gaps
+   - Documented usability issues
+   - Prioritized fixes by severity
+
+3. **Test Application Started** ⚠️
+   - Created `examples/06_simple_game.rs` (asteroids-style game)
+   - Compiles successfully
+   - **CRASHES on execution** (STATUS_ACCESS_VIOLATION)
+
+#### Critical Issues Discovered
+
+**🔴 CRITICAL BUG: Query Iterator Crash**
+- **Severity**: CRITICAL - Blocks all query usage
+- **Symptom**: STATUS_ACCESS_VIOLATION in release mode
+- **Location**: During `world.query::<(&mut Position, &Velocity)>()` iteration
+- **Impact**: Query system completely unusable despite passing all tests
+- **Root Cause**: Likely unsafe code in QueryIter or Fetch implementations
+- **Tests Status**: All 189 tests pass (tests don't actually iterate queries!)
+
+**🔴 CRITICAL GAP: Missing Query Integration Tests**
+- Current tests only verify type checking
+- No tests actually iterate over queries with real data
+- No tests verify query results are correct
+- No tests for mutable queries
+- No tests for multi-component queries
+
+**🟡 HIGH: Query Requires Mutable World**
+- `world.query()` requires `&mut self`
+- Cannot query from immutable contexts
+- Forces unnecessary mutability throughout codebase
+- Inconsistent with other ECS libraries
+
+#### Testing Gaps Identified
+
+The following critical scenarios are NOT tested:
+
+1. **Query Iteration**
+   - ❌ Iterating over entities with components
+   - ❌ Mutable component access during iteration
+   - ❌ Multi-component queries
+   - ❌ Empty query results
+   - ❌ Query with entity ID
+
+2. **Query Safety**
+   - ❌ Concurrent query access patterns
+   - ❌ Query invalidation scenarios
+   - ❌ Archetype transitions during iteration
+   - ❌ Component removal during iteration
+
+3. **Query Correctness**
+   - ❌ Verify correct components returned
+   - ❌ Verify correct entity count
+   - ❌ Verify component mutations persist
+   - ❌ Verify archetype filtering works
+
+#### Required Fixes (URGENT)
+
+**Immediate (Blocking)**
+1. Debug and fix query iterator crash
+2. Add comprehensive query integration tests
+3. Verify unsafe code in QueryIter and Fetch
+4. Test with AddressSanitizer/Miri
+
+**High Priority**
+5. Consider immutable query API (`&self` for read-only)
+6. Add query safety documentation
+7. Add query usage examples
+
+#### Test Applications Status
+
+- ❌ **06_simple_game.rs** - Crashes during query iteration
+- ⏳ **Particle simulation** - Blocked by query crash
+- ⏳ **Data processing pipeline** - Blocked by query crash
+
+#### Next Steps
+
+1. **Fix Query Crash** (URGENT)
+   - Debug with debug build
+   - Check unsafe code in query iteration
+   - Add logging to identify crash location
+   - Test with Miri for undefined behavior
+
+2. **Add Query Integration Tests**
+   - Test actual query iteration
+   - Test component access correctness
+   - Test mutable queries
+   - Test edge cases
+
+3. **Resume API Testing**
+   - Complete simple game example
+   - Build particle simulation
+   - Build data processing pipeline
+   - Document additional API issues
+
+#### Files Created
+
+- `src/query/query_impl.rs` - Query trait implementations
+- `docs/dev/TASK_4.1_API_TESTING_FINDINGS.md` - API issues documentation
+- `examples/06_simple_game.rs` - Test application (crashes)
+
+#### Metrics
+
+- Tests passing: 189/189 ✅
+- Query trait implemented: ✅
+- Real-world usage: ❌ CRASHES
+- Test coverage gap: CRITICAL
+
+**Conclusion**: The test suite has a major gap - it tests type checking but not actual query execution. Internal API testing successfully discovered this critical issue that would have blocked all users.
+
 **Ready for**: Week 5-6 (Examples and Tutorials)
