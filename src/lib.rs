@@ -53,10 +53,12 @@
 //! - [`query`]: Type-safe component queries
 //! - [`command`]: Thread-safe command buffers
 //! - [`world`]: Top-level ECS world
+//! - [`persistence`]: Pluggable persistence system
 
 pub mod command;
 pub mod component;
 pub mod entity;
+pub mod persistence;
 pub mod query;
 pub mod world;
 
