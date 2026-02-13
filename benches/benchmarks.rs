@@ -355,6 +355,165 @@ fn bench_world_with_capacity(c: &mut Criterion) {
 }
 
 // ============================================================================
+// Persistence Benchmarks
+// ============================================================================
+
+fn bench_persistence_serialize_binary(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_serialize_binary");
+
+    for size in [100, 1000, 10000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+
+            b.iter(|| {
+                let mut buffer = Vec::new();
+                world.save_binary(&mut buffer).unwrap();
+                black_box(());
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_deserialize_binary(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_deserialize_binary");
+
+    for size in [100, 1000, 10000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            // Prepare serialized data
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+            let mut buffer = Vec::new();
+            world.save_binary(&mut buffer).unwrap();
+
+            b.iter(|| {
+                let mut cursor = std::io::Cursor::new(&buffer);
+                black_box(World::load_binary(&mut cursor).unwrap());
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_roundtrip_binary(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_roundtrip_binary");
+
+    for size in [100, 1000, 10000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            b.iter_batched(
+                || {
+                    let mut world = World::new();
+                    for _ in 0..size {
+                        world.spawn_empty();
+                    }
+                    world
+                },
+                |world| {
+                    let mut buffer = Vec::new();
+                    world.save_binary(&mut buffer).unwrap();
+                    let mut cursor = std::io::Cursor::new(&buffer);
+                    black_box(World::load_binary(&mut cursor).unwrap());
+                },
+                criterion::BatchSize::SmallInput,
+            );
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_serialize_json(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_serialize_json");
+
+    for size in [100, 1000, 10000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+
+            b.iter(|| {
+                let mut buffer = Vec::new();
+                world.save_json(&mut buffer).unwrap();
+                black_box(());
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_deserialize_json(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_deserialize_json");
+
+    for size in [100, 1000, 10000].iter() {
+        group.throughput(Throughput::Elements(*size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            // Prepare serialized data
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+            let mut buffer = Vec::new();
+            world.save_json(&mut buffer).unwrap();
+
+            b.iter(|| {
+                let mut cursor = std::io::Cursor::new(&buffer);
+                black_box(World::load_json(&mut cursor).unwrap());
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_file_size_binary(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_file_size_binary");
+
+    for size in [100, 1000, 10000].iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+
+            b.iter(|| {
+                let mut buffer = Vec::new();
+                world.save_binary(&mut buffer).unwrap();
+                black_box(buffer.len());
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_persistence_file_size_json(c: &mut Criterion) {
+    let mut group = c.benchmark_group("persistence_file_size_json");
+
+    for size in [100, 1000, 10000].iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let mut world = World::new();
+            for _ in 0..size {
+                world.spawn_empty();
+            }
+
+            b.iter(|| {
+                let mut buffer = Vec::new();
+                world.save_json(&mut buffer).unwrap();
+                black_box(buffer.len());
+            });
+        });
+    }
+    group.finish();
+}
+
+// ============================================================================
 // Criterion Configuration
 // ============================================================================
 
@@ -388,11 +547,23 @@ criterion_group!(
     bench_world_with_capacity
 );
 
+criterion_group!(
+    persistence_benches,
+    bench_persistence_serialize_binary,
+    bench_persistence_deserialize_binary,
+    bench_persistence_roundtrip_binary,
+    bench_persistence_serialize_json,
+    bench_persistence_deserialize_json,
+    bench_persistence_file_size_binary,
+    bench_persistence_file_size_json
+);
+
 criterion_main!(
     entity_benches,
     stable_id_benches,
     command_benches,
-    world_benches
+    world_benches,
+    persistence_benches
 );
 
 // Made with Bob

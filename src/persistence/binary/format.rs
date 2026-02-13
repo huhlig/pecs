@@ -409,25 +409,44 @@ impl Footer {
     }
 }
 
-/// Calculate CRC64 checksum for data integrity
+/// Calculate CRC64 checksum for data integrity using a lookup table
 pub fn calculate_checksum(data: &[u8]) -> u64 {
-    // Simple CRC64 implementation using polynomial 0x42F0E1EBA9EA3693
-    const CRC64_POLY: u64 = 0x42F0E1EBA9EA3693;
+    // Use a lookup table for faster CRC64 calculation
+    // This is significantly faster than bit-by-bit calculation
+    const CRC64_TABLE: [u64; 256] = generate_crc64_table();
 
     let mut crc: u64 = 0xFFFFFFFFFFFFFFFF;
 
     for &byte in data {
-        crc ^= (byte as u64) << 56;
-        for _ in 0..8 {
+        let table_index = ((crc >> 56) ^ (byte as u64)) as u8;
+        crc = (crc << 8) ^ CRC64_TABLE[table_index as usize];
+    }
+
+    crc ^ 0xFFFFFFFFFFFFFFFF
+}
+
+/// Generate CRC64 lookup table at compile time
+const fn generate_crc64_table() -> [u64; 256] {
+    const CRC64_POLY: u64 = 0x42F0E1EBA9EA3693;
+    let mut table = [0u64; 256];
+    let mut i = 0;
+
+    while i < 256 {
+        let mut crc = (i as u64) << 56;
+        let mut j = 0;
+        while j < 8 {
             if crc & 0x8000000000000000 != 0 {
                 crc = (crc << 1) ^ CRC64_POLY;
             } else {
                 crc <<= 1;
             }
+            j += 1;
         }
+        table[i] = crc;
+        i += 1;
     }
 
-    crc ^ 0xFFFFFFFFFFFFFFFF
+    table
 }
 
 #[cfg(test)]

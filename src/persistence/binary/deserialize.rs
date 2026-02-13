@@ -51,6 +51,8 @@ impl BinaryDeserializer {
 
         // Read type registry
         self.type_registry.clear();
+        self.type_registry
+            .reserve(header.component_type_count as usize);
         for _ in 0..header.component_type_count {
             let entry = TypeRegistryEntry::read(reader)
                 .map_err(|e| PersistenceError::Deserialization(e.to_string()))?;
@@ -65,8 +67,8 @@ impl BinaryDeserializer {
             self.type_registry.insert(entry.type_id, entry);
         }
 
-        // Read entity data
-        let mut entities = Vec::new();
+        // Read entity data - pre-allocate for better performance
+        let mut entities = Vec::with_capacity(header.entity_count as usize);
         for _ in 0..header.entity_count {
             let entity = EntityData::read(reader)
                 .map_err(|e| PersistenceError::Deserialization(e.to_string()))?;

@@ -534,6 +534,113 @@ impl World {
         let persistence = PersistenceManager::new();
         persistence.load_with(path, plugin_name)
     }
+
+    /// Saves the world to a writer using binary format.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - Writer to save to
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::new();
+    /// let mut buffer = Vec::new();
+    /// world.save_binary(&mut buffer)?;
+    /// ```
+    pub fn save_binary(&self, writer: &mut dyn std::io::Write) -> crate::persistence::Result<()> {
+        use crate::persistence::binary::BinarySerializer;
+        use crate::persistence::binary::format::FormatFlags;
+
+        let serializer = BinarySerializer::new(FormatFlags::NONE);
+        serializer.serialize(self, writer)
+    }
+
+    /// Loads a world from a reader using binary format.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Reader to load from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    /// use std::io::Cursor;
+    ///
+    /// let buffer = vec![/* binary data */];
+    /// let mut cursor = Cursor::new(buffer);
+    /// let world = World::load_binary(&mut cursor)?;
+    /// ```
+    pub fn load_binary(reader: &mut dyn std::io::Read) -> crate::persistence::Result<Self> {
+        use crate::persistence::binary::BinaryDeserializer;
+
+        let mut deserializer = BinaryDeserializer::new();
+        deserializer.deserialize(reader)
+    }
+
+    /// Saves the world to a writer using JSON format.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - Writer to save to
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    ///
+    /// let world = World::new();
+    /// let mut buffer = Vec::new();
+    /// world.save_json(&mut buffer)?;
+    /// ```
+    pub fn save_json(&self, writer: &mut dyn std::io::Write) -> crate::persistence::Result<()> {
+        use crate::persistence::{JsonPlugin, PersistencePlugin};
+
+        let plugin = JsonPlugin::new();
+        plugin.save(self, writer)
+    }
+
+    /// Loads a world from a reader using JSON format.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Reader to load from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use pecs::World;
+    /// use std::io::Cursor;
+    ///
+    /// let json = r#"{"entities": []}"#;
+    /// let mut cursor = Cursor::new(json.as_bytes());
+    /// let world = World::load_json(&mut cursor)?;
+    /// ```
+    pub fn load_json(reader: &mut dyn std::io::Read) -> crate::persistence::Result<Self> {
+        use crate::persistence::{JsonPlugin, PersistencePlugin};
+
+        let plugin = JsonPlugin::new();
+        plugin.load(reader)
+    }
 }
 
 impl Default for World {
