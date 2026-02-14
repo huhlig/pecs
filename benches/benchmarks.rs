@@ -27,8 +27,9 @@
 //! - Stable ID lookup: < 50ns per operation
 //! - Persistence: < 1ms per 1000 entities (target: < 0.5ms per 1000 entities)
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use pecs::prelude::*;
+use std::hint::black_box;
 
 // ============================================================================
 // Entity Operation Benchmarks
@@ -37,7 +38,7 @@ use pecs::prelude::*;
 fn bench_entity_spawn_empty(c: &mut Criterion) {
     let mut group = c.benchmark_group("entity_spawn_empty");
 
-    for size in [1, 10, 100, 1000, 10000].iter() {
+    for size in [1, 10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
@@ -54,7 +55,7 @@ fn bench_entity_spawn_empty(c: &mut Criterion) {
 fn bench_entity_spawn_with_preallocated_capacity(c: &mut Criterion) {
     let mut group = c.benchmark_group("entity_spawn_with_capacity");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
@@ -71,7 +72,7 @@ fn bench_entity_spawn_with_preallocated_capacity(c: &mut Criterion) {
 fn bench_entity_despawn(c: &mut Criterion) {
     let mut group = c.benchmark_group("entity_despawn");
 
-    for size in [1, 10, 100, 1000, 10000].iter() {
+    for size in [1, 10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
@@ -95,7 +96,7 @@ fn bench_entity_despawn(c: &mut Criterion) {
 fn bench_entity_is_alive(c: &mut Criterion) {
     let mut group = c.benchmark_group("entity_is_alive");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -136,7 +137,7 @@ fn bench_entity_spawn_despawn_cycle(c: &mut Criterion) {
 fn bench_stable_id_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("stable_id_lookup");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -160,7 +161,7 @@ fn bench_stable_id_lookup(c: &mut Criterion) {
 fn bench_stable_id_reverse_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("stable_id_reverse_lookup");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -183,7 +184,7 @@ fn bench_stable_id_reverse_lookup(c: &mut Criterion) {
 fn bench_command_buffer_spawn(c: &mut Criterion) {
     let mut group = c.benchmark_group("command_buffer_spawn");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
@@ -205,7 +206,7 @@ fn bench_command_buffer_spawn(c: &mut Criterion) {
 fn bench_command_buffer_despawn(c: &mut Criterion) {
     let mut group = c.benchmark_group("command_buffer_despawn");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
@@ -272,7 +273,7 @@ fn bench_command_buffer_mixed_operations(c: &mut Criterion) {
 fn bench_world_clear(c: &mut Criterion) {
     let mut group = c.benchmark_group("world_clear");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
@@ -297,7 +298,7 @@ fn bench_world_clear(c: &mut Criterion) {
 fn bench_world_len(c: &mut Criterion) {
     let mut group = c.benchmark_group("world_len");
 
-    for size in [100, 1000, 10000, 100000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -316,7 +317,7 @@ fn bench_world_len(c: &mut Criterion) {
 fn bench_world_iter_entities(c: &mut Criterion) {
     let mut group = c.benchmark_group("world_iter_entities");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -344,7 +345,7 @@ fn bench_world_iter_entities(c: &mut Criterion) {
 fn bench_world_with_capacity(c: &mut Criterion) {
     let mut group = c.benchmark_group("world_with_capacity");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
                 black_box(World::with_capacity(size));
@@ -361,7 +362,7 @@ fn bench_world_with_capacity(c: &mut Criterion) {
 fn bench_persistence_serialize_binary(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_serialize_binary");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -382,7 +383,7 @@ fn bench_persistence_serialize_binary(c: &mut Criterion) {
 fn bench_persistence_deserialize_binary(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_deserialize_binary");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             // Prepare serialized data
@@ -405,7 +406,7 @@ fn bench_persistence_deserialize_binary(c: &mut Criterion) {
 fn bench_persistence_roundtrip_binary(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_roundtrip_binary");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter_batched(
@@ -432,7 +433,7 @@ fn bench_persistence_roundtrip_binary(c: &mut Criterion) {
 fn bench_persistence_serialize_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_serialize_json");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
@@ -453,7 +454,7 @@ fn bench_persistence_serialize_json(c: &mut Criterion) {
 fn bench_persistence_deserialize_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_deserialize_json");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.throughput(Throughput::Elements(*size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             // Prepare serialized data
@@ -476,7 +477,7 @@ fn bench_persistence_deserialize_json(c: &mut Criterion) {
 fn bench_persistence_file_size_binary(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_file_size_binary");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
             for _ in 0..size {
@@ -496,7 +497,7 @@ fn bench_persistence_file_size_binary(c: &mut Criterion) {
 fn bench_persistence_file_size_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("persistence_file_size_json");
 
-    for size in [100, 1000, 10000].iter() {
+    for size in [100, 1000, 5000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let mut world = World::new();
             for _ in 0..size {

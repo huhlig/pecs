@@ -1,7 +1,7 @@
 # PECS - Persistent Entity Component System
 
 [![Crates.io](https://img.shields.io/crates/v/pecs.svg)](https://crates.io/crates/pecs)
-[![Documentation](https://docs.rs/pecs/badge.svg)](https://docs.rs/pecs)
+[![Documentation](https://docs.rs/pecs/badge.svg)](https://huhlig.github.io/pecs)
 [![License](https://img.shields.io/crates/l/pecs.svg)](LICENSE)
 [![Build Status](https://img.shields.io/github/workflow/status/yourusername/pecs/CI)](https://github.com/yourusername/pecs/actions)
 
@@ -35,11 +35,17 @@ use pecs::prelude::*;
 
 // Define components
 #[derive(Debug)]
-struct Position { x: f32, y: f32 }
+struct Position {
+    x: f32,
+    y: f32
+}
 impl Component for Position {}
 
 #[derive(Debug)]
-struct Velocity { x: f32, y: f32 }
+struct Velocity {
+    x: f32,
+    y: f32
+}
 impl Component for Velocity {}
 
 fn main() {
@@ -76,17 +82,18 @@ fn main() {
 
 PECS is designed for high performance with extensive optimizations:
 
-| Operation | Performance | Status |
-|-----------|-------------|--------|
-| Entity spawn (single) | ~538ns | ✅ Optimized |
-| Entity spawn (batch) | ~118-318ns per entity | ✅ Optimized |
-| Entity lookup | ~5-10ns | ✅ Optimized |
-| Component access | ~5ns (cache hit) | ✅ Optimized |
-| Query iteration | 2-5x faster (optimized) | ✅ Optimized |
-| Binary persistence | ~0.36ms per 1000 entities | ✅ 58% faster |
-| JSON persistence | Human-readable format | ✅ Complete |
+| Operation             | Performance               | Status       |
+|-----------------------|---------------------------|--------------|
+| Entity spawn (single) | ~538ns                    | ✅ Optimized  |
+| Entity spawn (batch)  | ~118-318ns per entity     | ✅ Optimized  |
+| Entity lookup         | ~5-10ns                   | ✅ Optimized  |
+| Component access      | ~5ns (cache hit)          | ✅ Optimized  |
+| Query iteration       | 2-5x faster (optimized)   | ✅ Optimized  |
+| Binary persistence    | ~0.36ms per 1000 entities | ✅ 58% faster |
+| JSON persistence      | Human-readable format     | ✅ Complete   |
 
 **Recent Optimizations** (Phase 3):
+
 - 58% faster binary serialization (117.6µs → 48.6µs per 1000 entities)
 - 2-5x faster query iteration with caching
 - 10-20x faster entity location lookup (HashMap → Vec)
@@ -135,20 +142,21 @@ PECS provides built-in persistence with multiple formats:
 use pecs::World;
 
 // Binary format (fast, compact)
-world.save("world.pecs")?;
-let world = World::load("world.pecs")?;
+world.save("world.pecs") ?;
+let world = World::load("world.pecs") ?;
 
 // JSON format (human-readable)
-world.save_with("world.json", "json")?;
-let world = World::load_with("world.json", "json")?;
+world.save_with("world.json", "json") ?;
+let world = World::load_with("world.json", "json") ?;
 
 // Streaming API for large worlds
 use std::fs::File;
-let mut file = File::create("world.pecs")?;
-world.save_binary(&mut file)?;
+let mut file = File::create("world.pecs") ?;
+world.save_binary( & mut file) ?;
 ```
 
 Features:
+
 - Version-aware serialization
 - Checksum validation
 - Transient component support
@@ -166,6 +174,7 @@ Check out the [examples](examples/) directory for complete applications:
 - **[06_simple_game.rs](examples/06_simple_game.rs)** - Asteroids-style game example
 
 Run examples with:
+
 ```bash
 cargo run --example 01_hello_world --release
 ```
@@ -175,6 +184,7 @@ See [examples/README.md](examples/README.md) for detailed documentation.
 ## Roadmap
 
 ### Phase 1: Core ECS ✅ Complete (2026-02-13)
+
 - [x] Entity management with dual ID system
 - [x] Component storage with archetypes
 - [x] Query system with filters
@@ -183,6 +193,7 @@ See [examples/README.md](examples/README.md) for detailed documentation.
 - [x] 94 tests passing
 
 ### Phase 2: Persistence ✅ Complete (2026-02-13)
+
 - [x] Binary serialization format (< 0.4ms per 1000 entities)
 - [x] JSON serialization format
 - [x] Plugin system with delta persistence
@@ -191,6 +202,7 @@ See [examples/README.md](examples/README.md) for detailed documentation.
 - [x] 164 tests passing
 
 ### Phase 3: Polish & Optimization ✅ Complete (2026-02-14)
+
 - [x] Performance optimization (58% faster serialization, 2-5x faster queries)
 - [x] Query system integration and bug fixes
 - [x] Comprehensive documentation (4,500+ lines, 100% API coverage)
@@ -200,6 +212,7 @@ See [examples/README.md](examples/README.md) for detailed documentation.
 - [x] 202 tests passing
 
 ### Phase 4: Release 🔜 Next
+
 - [ ] Tutorial series
 - [ ] Additional complete applications
 - [ ] Beta testing
@@ -243,14 +256,14 @@ See [ADR-005: Library Not Framework](docs/ADR/ADR-005-library-not-framework.md) 
 
 ## Comparison with Other ECS Libraries
 
-| Feature | PECS | Bevy ECS | Specs | Legion |
-|---------|------|----------|-------|--------|
-| Archetype-based | ✅ | ✅ | ❌ | ✅ |
-| Built-in Persistence | ✅ | ❌ | ❌ | ❌ |
-| Dual ID System | ✅ | ❌ | ❌ | ❌ |
-| Zero Dependencies | ✅ | ❌ | ❌ | ❌ |
-| Library (not framework) | ✅ | ❌ | ✅ | ✅ |
-| Query Performance | High | High | Medium | High |
+| Feature                 | PECS | Bevy ECS | Specs  | Legion |
+|-------------------------|------|----------|--------|--------|
+| Archetype-based         | ✅    | ✅        | ❌      | ✅      |
+| Built-in Persistence    | ✅    | ❌        | ❌      | ❌      |
+| Dual ID System          | ✅    | ❌        | ❌      | ❌      |
+| Zero Dependencies       | ✅    | ❌        | ❌      | ❌      |
+| Library (not framework) | ✅    | ❌        | ✅      | ✅      |
+| Query Performance       | High | High     | Medium | High   |
 
 ## License
 
@@ -264,7 +277,9 @@ at your option.
 ## Acknowledgments
 
 PECS is inspired by:
+
 - [Bevy ECS](https://github.com/bevyengine/bevy) - Archetype-based design
+- [HECS](https://github.com/Ralith/hecs) - Batch entity operations
 - [Specs](https://github.com/amethyst/specs) - Component storage patterns
 - [Legion](https://github.com/amethyst/legion) - Query optimization
 - [EnTT](https://github.com/skypjack/entt) - Entity recycling
@@ -280,4 +295,4 @@ Special thanks to the Rust gamedev community for their insights and feedback.
 
 ---
 
-Made with ❤️ and 🦀 by the PECS team
+Made with ❤️ and 🦀 by Wyldlands team
