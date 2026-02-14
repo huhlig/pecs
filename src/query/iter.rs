@@ -4,7 +4,7 @@
 //! multiple archetypes efficiently.
 
 use super::{Fetch, Filter};
-use crate::component::archetype::ArchetypeManager;
+use crate::component::archetype::{Archetype, ArchetypeManager};
 use crate::entity::EntityId;
 use std::marker::PhantomData;
 
@@ -12,6 +12,12 @@ use std::marker::PhantomData;
 ///
 /// This iterator traverses all archetypes that match the query's fetch
 /// requirements and filters, yielding items for each matching entity.
+///
+/// # Performance Optimizations
+///
+/// - Caches current archetype reference to avoid repeated lookups
+/// - Skips archetype matching check once archetype is validated
+/// - Uses direct entity slice access for better cache locality
 pub struct QueryIter<'w, F, Fil = ()> {
     /// Reference to the archetype manager
     archetype_manager: &'w ArchetypeManager,
@@ -21,6 +27,12 @@ pub struct QueryIter<'w, F, Fil = ()> {
 
     /// Current entity index within the archetype
     entity_index: usize,
+
+    /// Cached reference to current archetype (avoids repeated lookups)
+    current_archetype: Option<&'w Archetype>,
+
+    /// Cached entity slice from current archetype (better cache locality)
+    current_entities: &'w [EntityId],
 
     /// Phantom data for fetch and filter types
     _phantom: PhantomData<(F, Fil)>,
@@ -37,6 +49,8 @@ impl<'w, F, Fil> QueryIter<'w, F, Fil> {
             archetype_manager,
             archetype_index: 0,
             entity_index: 0,
+            current_archetype: None,
+            current_entities: &[],
             _phantom: PhantomData,
         }
     }
@@ -45,6 +59,8 @@ impl<'w, F, Fil> QueryIter<'w, F, Fil> {
     pub fn reset(&mut self) {
         self.archetype_index = 0;
         self.entity_index = 0;
+        self.current_archetype = None;
+        self.current_entities = &[];
     }
 }
 
@@ -57,20 +73,14 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // Get current archetype
-            let archetype_id = crate::component::archetype::ArchetypeId::new(self.archetype_index);
-            let archetype = self.archetype_manager.get_archetype(archetype_id)?;
-
-            // Check if this archetype matches our fetch requirements
-            if !F::matches_archetype(archetype) {
-                self.archetype_index += 1;
-                self.entity_index = 0;
-                continue;
-            }
-
-            // Try to get the next entity in this archetype
-            if let Some(entity) = archetype.get_entity(self.entity_index) {
+            // Fast path: iterate within current archetype
+            if self.entity_index < self.current_entities.len() {
+                let entity = self.current_entities[self.entity_index];
                 self.entity_index += 1;
+
+                // SAFETY: We've verified the archetype matches and the entity exists
+                // current_archetype is guaranteed to be Some when current_entities is non-empty
+                let archetype = unsafe { self.current_archetype.unwrap_unchecked() };
 
                 // Check if the entity passes the filter
                 if !Fil::matches(archetype, entity) {
@@ -78,14 +88,31 @@ where
                 }
 
                 // Fetch the data for this entity
-                // SAFETY: We've verified the archetype matches and the entity exists
                 let item = unsafe { F::fetch(archetype, entity) };
                 return Some(item);
             }
 
-            // Move to next archetype
+            // Slow path: move to next matching archetype
             self.archetype_index += 1;
             self.entity_index = 0;
+
+            // Find next matching archetype
+            loop {
+                let archetype_id =
+                    crate::component::archetype::ArchetypeId::new(self.archetype_index);
+                let archetype = self.archetype_manager.get_archetype(archetype_id)?;
+
+                // Check if this archetype matches our fetch requirements
+                if F::matches_archetype(archetype) {
+                    // Cache the archetype and its entities for fast iteration
+                    self.current_archetype = Some(archetype);
+                    self.current_entities = archetype.entities();
+                    break;
+                }
+
+                // Skip non-matching archetype
+                self.archetype_index += 1;
+            }
         }
     }
 }
@@ -96,16 +123,51 @@ where
 /// A query iterator that also yields the entity ID.
 ///
 /// This is a convenience wrapper that includes the entity ID in the results.
+///
+/// # Performance Optimizations
+///
+/// - Uses same caching strategy as QueryIter
+/// - Avoids repeated archetype lookups
+/// - Direct entity slice access for better cache locality
 pub struct QueryIterWithEntity<'w, F, Fil = ()> {
-    inner: QueryIter<'w, F, Fil>,
+    /// Reference to the archetype manager
+    archetype_manager: &'w ArchetypeManager,
+
+    /// Current archetype index
+    archetype_index: usize,
+
+    /// Current entity index within the archetype
+    entity_index: usize,
+
+    /// Cached reference to current archetype
+    current_archetype: Option<&'w Archetype>,
+
+    /// Cached entity slice from current archetype
+    current_entities: &'w [EntityId],
+
+    /// Phantom data for fetch and filter types
+    _phantom: PhantomData<(F, Fil)>,
 }
 
 impl<'w, F, Fil> QueryIterWithEntity<'w, F, Fil> {
     /// Creates a new query iterator with entity IDs.
     pub fn new(archetype_manager: &'w ArchetypeManager) -> Self {
         Self {
-            inner: QueryIter::new(archetype_manager),
+            archetype_manager,
+            archetype_index: 0,
+            entity_index: 0,
+            current_archetype: None,
+            current_entities: &[],
+            _phantom: PhantomData,
         }
+    }
+
+    /// Resets the iterator to the beginning.
+    pub fn reset(&mut self) {
+        self.archetype_index = 0;
+        self.entity_index = 0;
+        self.current_archetype = None;
+        self.current_entities = &[];
     }
 }
 
@@ -118,30 +180,46 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let archetype_id =
-                crate::component::archetype::ArchetypeId::new(self.inner.archetype_index);
-            let archetype = self.inner.archetype_manager.get_archetype(archetype_id)?;
+            // Fast path: iterate within current archetype
+            if self.entity_index < self.current_entities.len() {
+                let entity = self.current_entities[self.entity_index];
+                self.entity_index += 1;
 
-            if !F::matches_archetype(archetype) {
-                self.inner.archetype_index += 1;
-                self.inner.entity_index = 0;
-                continue;
-            }
+                // SAFETY: current_archetype is guaranteed to be Some when current_entities is non-empty
+                let archetype = unsafe { self.current_archetype.unwrap_unchecked() };
 
-            if let Some(entity) = archetype.get_entity(self.inner.entity_index) {
-                self.inner.entity_index += 1;
-
+                // Check if the entity passes the filter
                 if !Fil::matches(archetype, entity) {
                     continue;
                 }
 
+                // Fetch the data for this entity
                 // SAFETY: We've verified the archetype matches and the entity exists
                 let item = unsafe { F::fetch(archetype, entity) };
                 return Some((entity, item));
             }
 
-            self.inner.archetype_index += 1;
-            self.inner.entity_index = 0;
+            // Slow path: move to next matching archetype
+            self.archetype_index += 1;
+            self.entity_index = 0;
+
+            // Find next matching archetype
+            loop {
+                let archetype_id =
+                    crate::component::archetype::ArchetypeId::new(self.archetype_index);
+                let archetype = self.archetype_manager.get_archetype(archetype_id)?;
+
+                // Check if this archetype matches our fetch requirements
+                if F::matches_archetype(archetype) {
+                    // Cache the archetype and its entities for fast iteration
+                    self.current_archetype = Some(archetype);
+                    self.current_entities = archetype.entities();
+                    break;
+                }
+
+                // Skip non-matching archetype
+                self.archetype_index += 1;
+            }
         }
     }
 }

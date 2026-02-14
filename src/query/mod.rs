@@ -29,6 +29,7 @@
 pub mod fetch;
 pub mod filter;
 pub mod iter;
+mod query_impl;
 
 use crate::entity::EntityId;
 use std::marker::PhantomData;

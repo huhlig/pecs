@@ -181,27 +181,37 @@ impl StableId {
     /// assert_ne!(id1, id2); // Extremely unlikely to be equal
     /// ```
     pub fn new() -> Self {
-        // Generate a random UUID v4
-        // For now, using a simple random approach
-        // In production, would use uuid crate or similar
-        use std::collections::hash_map::RandomState;
-        use std::hash::{BuildHasher, Hash, Hasher};
+        // Use a fast atomic counter for the low 64 bits and a random seed for the high 64 bits
+        // This provides uniqueness within a single process while being much faster than
+        // calling SystemTime::now() on every allocation.
+        use std::sync::atomic::{AtomicU64, Ordering};
 
-        let random_state = RandomState::new();
-        let mut hasher = random_state.build_hasher();
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        static SEED: AtomicU64 = AtomicU64::new(0);
 
-        // Hash current time and thread info for uniqueness
-        std::time::SystemTime::now().hash(&mut hasher);
-        std::thread::current().id().hash(&mut hasher);
+        // Initialize seed on first call using thread ID and time
+        let seed = SEED.load(Ordering::Relaxed);
+        let high = if seed == 0 {
+            use std::collections::hash_map::RandomState;
+            use std::hash::{BuildHasher, Hash, Hasher};
 
-        let hash1 = hasher.finish();
+            let random_state = RandomState::new();
+            let mut hasher = random_state.build_hasher();
+            std::thread::current().id().hash(&mut hasher);
+            std::time::SystemTime::now().hash(&mut hasher);
+            let new_seed = hasher.finish();
 
-        let mut hasher = random_state.build_hasher();
-        hash1.hash(&mut hasher);
-        std::time::SystemTime::now().hash(&mut hasher);
-        let hash2 = hasher.finish();
+            // Try to set the seed (only first thread succeeds)
+            SEED.compare_exchange(0, new_seed, Ordering::Relaxed, Ordering::Relaxed)
+                .unwrap_or(new_seed)
+        } else {
+            seed
+        };
 
-        let value = ((hash1 as u128) << 64) | (hash2 as u128);
+        // Fast atomic counter for low bits
+        let low = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+        let value = ((high as u128) << 64) | (low as u128);
         Self(value)
     }
 

@@ -3,6 +3,12 @@
 //! This module provides implementations of the `Fetch` trait for various
 //! component access patterns, including immutable references, mutable references,
 //! and tuples of these.
+//!
+//! # Performance Optimizations
+//!
+//! - All fetch operations are marked with `#[inline(always)]` for zero-cost abstraction
+//! - Archetype matching is optimized with inline hints
+//! - Unsafe operations are carefully documented and optimized
 
 use super::Fetch;
 use crate::component::{Component, archetype::Archetype};
@@ -12,6 +18,11 @@ use std::marker::PhantomData;
 /// Fetch implementation for immutable component references.
 ///
 /// This allows querying for `&T` where `T` is a component type.
+///
+/// # Performance
+///
+/// This is a zero-cost abstraction when optimized. The fetch operation
+/// compiles down to a simple pointer dereference.
 pub struct FetchRead<T: Component> {
     _phantom: PhantomData<T>,
 }
@@ -19,19 +30,31 @@ pub struct FetchRead<T: Component> {
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
 
+    #[inline(always)]
     fn matches_archetype(archetype: &Archetype) -> bool {
         archetype.has_component::<T>()
     }
 
+    #[inline(always)]
     unsafe fn fetch(archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         // SAFETY: Caller ensures entity exists and archetype matches
-        unsafe { archetype.get_component::<T>(entity).unwrap_unchecked() }
+        // The archetype must have this component type (verified by matches_archetype)
+        unsafe {
+            archetype
+                .get_component::<T>(entity)
+                .expect("Entity must have component in matching archetype")
+        }
     }
 }
 
 /// Fetch implementation for mutable component references.
 ///
 /// This allows querying for `&mut T` where `T` is a component type.
+///
+/// # Performance
+///
+/// This is a zero-cost abstraction when optimized. The fetch operation
+/// compiles down to a simple pointer dereference.
 pub struct FetchWrite<T: Component> {
     _phantom: PhantomData<T>,
 }
@@ -39,14 +62,19 @@ pub struct FetchWrite<T: Component> {
 impl<'a, T: Component> Fetch<'a> for FetchWrite<T> {
     type Item = &'a mut T;
 
+    #[inline(always)]
     fn matches_archetype(archetype: &Archetype) -> bool {
         archetype.has_component::<T>()
     }
 
+    #[inline(always)]
     unsafe fn fetch(archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         // SAFETY: Caller ensures entity exists, archetype matches, and access is exclusive
+        // The archetype must have this component type (verified by matches_archetype)
         unsafe {
-            let ptr = archetype.get_component_ptr::<T>(entity).unwrap_unchecked();
+            let ptr = archetype
+                .get_component_ptr::<T>(entity)
+                .expect("Entity must have component in matching archetype");
             &mut *(ptr as *mut T)
         }
     }
@@ -55,6 +83,11 @@ impl<'a, T: Component> Fetch<'a> for FetchWrite<T> {
 /// Fetch implementation for optional component references.
 ///
 /// This allows querying for `Option<&T>` where `T` is a component type.
+///
+/// # Performance
+///
+/// Slightly slower than required fetches due to the Option check,
+/// but still very efficient.
 pub struct FetchOptional<T: Component> {
     _phantom: PhantomData<T>,
 }
@@ -62,11 +95,13 @@ pub struct FetchOptional<T: Component> {
 impl<'a, T: Component> Fetch<'a> for FetchOptional<T> {
     type Item = Option<&'a T>;
 
+    #[inline(always)]
     fn matches_archetype(_archetype: &Archetype) -> bool {
         // Optional fetches always match
         true
     }
 
+    #[inline(always)]
     unsafe fn fetch(archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         // SAFETY: Caller ensures entity exists
         unsafe { archetype.get_component::<T>(entity) }
@@ -76,16 +111,23 @@ impl<'a, T: Component> Fetch<'a> for FetchOptional<T> {
 /// Fetch implementation for entity IDs.
 ///
 /// This allows including the entity ID in query results.
+///
+/// # Performance
+///
+/// This is the fastest fetch operation as it just returns the entity ID
+/// without any memory access.
 pub struct FetchEntity;
 
 impl<'a> Fetch<'a> for FetchEntity {
     type Item = EntityId;
 
+    #[inline(always)]
     fn matches_archetype(_archetype: &Archetype) -> bool {
         // Entity fetch always matches
         true
     }
 
+    #[inline(always)]
     unsafe fn fetch(_archetype: &'a Archetype, entity: EntityId) -> Self::Item {
         entity
     }

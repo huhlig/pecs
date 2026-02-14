@@ -336,9 +336,7 @@ impl EntityManager {
     /// manager.reserve(1000);
     /// ```
     pub fn reserve(&mut self, additional: usize) {
-        // Note: This is a placeholder. The actual implementation would
-        // need to be added to EntityAllocator
-        let _ = additional;
+        self.allocator.reserve(additional);
     }
 
     /// Spawns an entity with a specific stable ID.

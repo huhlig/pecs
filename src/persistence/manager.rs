@@ -272,6 +272,102 @@ impl PersistenceManager {
         Ok(world)
     }
 
+    /// Saves a world to a writer using the default plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to save
+    /// * `writer` - Writer to save to
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default plugin is registered
+    /// - Serialization fails
+    pub fn save_to_writer(&self, world: &World, writer: &mut dyn std::io::Write) -> Result<()> {
+        let plugin_name = self
+            .default_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default".to_string()))?;
+        self.save_to_writer_with(world, writer, plugin_name)
+    }
+
+    /// Saves a world to a writer using a specific plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to save
+    /// * `writer` - Writer to save to
+    /// * `plugin_name` - Name of the plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - Serialization fails
+    pub fn save_to_writer_with(
+        &self,
+        world: &World,
+        writer: &mut dyn std::io::Write,
+        plugin_name: &str,
+    ) -> Result<()> {
+        let plugin = self
+            .plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        plugin.save(world, writer)
+    }
+
+    /// Loads a world from a reader using the default plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Reader to load from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default plugin is registered
+    /// - Deserialization fails
+    pub fn load_from_reader(&self, reader: &mut dyn std::io::Read) -> Result<World> {
+        let plugin_name = self
+            .default_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default".to_string()))?;
+        self.load_from_reader_with(reader, plugin_name)
+    }
+
+    /// Loads a world from a reader using a specific plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Reader to load from
+    /// * `plugin_name` - Name of the plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - Deserialization fails
+    pub fn load_from_reader_with(
+        &self,
+        reader: &mut dyn std::io::Read,
+        plugin_name: &str,
+    ) -> Result<World> {
+        let plugin = self
+            .plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        let mut world = plugin.load(reader)?;
+
+        // Apply migrations if needed
+        self.apply_migrations(&mut world)?;
+
+        Ok(world)
+    }
+
     /// Saves only the changes since the last checkpoint.
     ///
     /// This is more efficient than saving the entire world and is useful

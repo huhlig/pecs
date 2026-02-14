@@ -39,7 +39,7 @@ pub struct EntityLocation {
 ///
 /// When a component is added or removed from an entity, it moves to a different
 /// archetype. These edges cache the target archetype IDs to avoid repeated lookups.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ArchetypeEdges {
     /// Map from added component type to target archetype
     add_edges: HashMap<ComponentTypeId, ArchetypeId>,
@@ -48,10 +48,19 @@ pub struct ArchetypeEdges {
     remove_edges: HashMap<ComponentTypeId, ArchetypeId>,
 }
 
+impl Default for ArchetypeEdges {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ArchetypeEdges {
-    /// Creates new empty archetype edges.
+    /// Creates new empty archetype edges with pre-allocated capacity.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            add_edges: HashMap::with_capacity(8),
+            remove_edges: HashMap::with_capacity(8),
+        }
     }
 
     /// Gets the target archetype when adding a component.
@@ -116,10 +125,15 @@ impl Archetype {
         component_types: ComponentSet,
         component_info: Vec<ComponentInfo>,
     ) -> Self {
-        let mut component_storage = HashMap::new();
+        // Pre-allocate HashMap with capacity to avoid rehashing
+        let mut component_storage = HashMap::with_capacity(component_info.len());
 
         for info in &component_info {
-            component_storage.insert(info.type_id(), ComponentStorage::new(info.clone()));
+            // Pre-allocate component storage with reasonable initial capacity
+            component_storage.insert(
+                info.type_id(),
+                ComponentStorage::with_capacity(info.clone(), 16),
+            );
         }
 
         Self {
@@ -127,8 +141,8 @@ impl Archetype {
             component_types,
             component_storage,
             component_info,
-            entities: Vec::new(),
-            entity_index: HashMap::new(),
+            entities: Vec::with_capacity(16), // Pre-allocate for common case
+            entity_index: HashMap::with_capacity(16),
             edges: ArchetypeEdges::new(),
         }
     }
@@ -248,6 +262,14 @@ impl Archetype {
         let row = self.entities.len();
         self.entities.push(entity);
         self.entity_index.insert(entity, row);
+
+        // Pre-allocate space in all component storages to avoid repeated allocations
+        for storage in self.component_storage.values_mut() {
+            if storage.len() <= row {
+                storage.reserve(1);
+            }
+        }
+
         row
     }
 
@@ -266,12 +288,37 @@ impl Archetype {
     ) {
         if let Some(storage) = self.component_storage.get_mut(&component_type) {
             // Ensure storage has capacity for this row
-            while storage.len() <= row {
-                // Push a dummy value (will be overwritten)
-                let dummy = vec![0u8; storage.info().size()];
-                // SAFETY: dummy is a valid pointer to initialized memory
-                unsafe {
-                    storage.push(dummy.as_ptr());
+            if storage.len() <= row {
+                // Reserve capacity if needed
+                storage.reserve(row + 1 - storage.len());
+
+                // Fill gaps with uninitialized memory (will be overwritten)
+                // This is more efficient than creating Vec<u8> for each dummy value
+                let component_size = storage.info().size();
+                while storage.len() <= row {
+                    // For zero-sized types, just increment length
+                    if component_size == 0 {
+                        // SAFETY: Zero-sized types don't need actual memory
+                        unsafe {
+                            storage.push(std::ptr::null());
+                        }
+                    } else {
+                        // Allocate uninitialized memory on stack (faster than heap)
+                        let mut uninit = std::mem::MaybeUninit::<[u8; 256]>::uninit();
+                        let dummy_ptr = if component_size <= 256 {
+                            uninit.as_mut_ptr() as *const u8
+                        } else {
+                            // For large components, use heap allocation
+                            let dummy = vec![0u8; component_size];
+                            let ptr = dummy.as_ptr();
+                            std::mem::forget(dummy);
+                            ptr
+                        };
+                        // SAFETY: dummy_ptr points to valid memory
+                        unsafe {
+                            storage.push(dummy_ptr);
+                        }
+                    }
                 }
             }
 
@@ -391,8 +438,9 @@ pub struct ArchetypeManager {
     /// Map from component set to archetype ID
     archetype_index: HashMap<ComponentSet, ArchetypeId>,
 
-    /// Map from entity to its location
-    entity_locations: HashMap<EntityId, EntityLocation>,
+    /// Map from entity to its location (using Vec for O(1) access by entity index)
+    /// This is more cache-friendly than HashMap for entity lookups
+    entity_locations: Vec<Option<EntityLocation>>,
 }
 
 impl ArchetypeManager {
@@ -401,7 +449,7 @@ impl ArchetypeManager {
         let mut manager = Self {
             archetypes: Vec::new(),
             archetype_index: HashMap::new(),
-            entity_locations: HashMap::new(),
+            entity_locations: Vec::with_capacity(1024), // Pre-allocate for common case
         };
 
         // Create the empty archetype (archetype 0)
@@ -448,17 +496,28 @@ impl ArchetypeManager {
 
     /// Gets the location of an entity.
     pub fn get_entity_location(&self, entity: EntityId) -> Option<EntityLocation> {
-        self.entity_locations.get(&entity).copied()
+        let index = entity.index() as usize;
+        self.entity_locations.get(index).and_then(|loc| *loc)
     }
 
     /// Sets the location of an entity.
     pub fn set_entity_location(&mut self, entity: EntityId, location: EntityLocation) {
-        self.entity_locations.insert(entity, location);
+        let index = entity.index() as usize;
+        // Ensure the Vec is large enough
+        if index >= self.entity_locations.len() {
+            self.entity_locations.resize(index + 1, None);
+        }
+        self.entity_locations[index] = Some(location);
     }
 
     /// Removes an entity's location.
     pub fn remove_entity_location(&mut self, entity: EntityId) -> Option<EntityLocation> {
-        self.entity_locations.remove(&entity)
+        let index = entity.index() as usize;
+        if index < self.entity_locations.len() {
+            self.entity_locations[index].take()
+        } else {
+            None
+        }
     }
 
     /// Returns the number of archetypes.
@@ -469,6 +528,57 @@ impl ArchetypeManager {
     /// Returns `true` if there are no archetypes (should never happen).
     pub fn is_empty(&self) -> bool {
         self.archetypes.is_empty()
+    }
+
+    /// Moves an entity from one archetype to another with additional component data.
+    ///
+    /// This is a helper method that handles the borrow checker complexity of
+    /// accessing two archetypes simultaneously.
+    ///
+    /// # Safety
+    ///
+    /// - `entity` must exist in the source archetype
+    /// - `component_data` must contain valid component pointers
+    /// - The target archetype must have the correct component types
+    pub unsafe fn move_entity_between_archetypes(
+        &mut self,
+        entity: EntityId,
+        source_id: ArchetypeId,
+        target_id: ArchetypeId,
+        component_data: &[(ComponentTypeId, *const u8)],
+    ) -> Option<usize> {
+        let source_idx = source_id.index();
+        let target_idx = target_id.index();
+
+        if source_idx == target_idx {
+            // Same archetype - just update components in place
+            if let Some(archetype) = self.archetypes.get_mut(source_idx) {
+                let row = archetype.get_entity_row(entity)?;
+                for (component_type, component_ptr) in component_data {
+                    // SAFETY: Caller ensures component_ptr is valid
+                    unsafe {
+                        archetype.set_component(row, *component_type, *component_ptr);
+                    }
+                }
+                return Some(row);
+            }
+            return None;
+        }
+
+        // Different archetypes - need to move entity
+        if source_idx < target_idx {
+            let (left, right) = self.archetypes.split_at_mut(target_idx);
+            let source = &mut left[source_idx];
+            let target = &mut right[0];
+            // SAFETY: Caller ensures entity exists and component_data is valid
+            unsafe { source.move_entity_to(entity, target, component_data) }
+        } else {
+            let (left, right) = self.archetypes.split_at_mut(source_idx);
+            let target = &mut left[target_idx];
+            let source = &mut right[0];
+            // SAFETY: Caller ensures entity exists and component_data is valid
+            unsafe { source.move_entity_to(entity, target, component_data) }
+        }
     }
 }
 

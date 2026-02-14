@@ -34,9 +34,6 @@ impl BinarySerializer {
     /// - Component serialization fails
     /// - Data is invalid
     pub fn serialize(&self, world: &World, writer: &mut dyn Write) -> Result<(), PersistenceError> {
-        // Collect all data first to calculate checksum
-        let mut buffer = Vec::new();
-
         // Get world metadata
         let metadata = world.metadata();
 
@@ -45,6 +42,14 @@ impl BinarySerializer {
 
         // Collect entity data
         let entity_data = self.collect_entity_data(world)?;
+
+        // Pre-allocate buffer with estimated size to reduce allocations
+        // Estimate: header + type registry + entity data
+        let estimated_size = Header::HEADER_SIZE
+            + type_registry.len() * 64  // Rough estimate per type entry
+            + entity_data.len() * 32    // Rough estimate per entity
+            + Footer::FOOTER_SIZE;
+        let mut buffer = Vec::with_capacity(estimated_size);
 
         // Write header
         let header = Header {

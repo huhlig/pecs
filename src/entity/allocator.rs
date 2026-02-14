@@ -69,12 +69,7 @@ impl EntityAllocator {
     /// let allocator = EntityAllocator::new();
     /// ```
     pub fn new() -> Self {
-        Self {
-            meta: Vec::new(),
-            free_list: Vec::new(),
-            ephemeral_to_stable: HashMap::new(),
-            stable_to_ephemeral: HashMap::new(),
-        }
+        Self::with_capacity(0)
     }
 
     /// Creates a new entity allocator with pre-allocated capacity.
@@ -91,11 +86,13 @@ impl EntityAllocator {
     /// let allocator = EntityAllocator::with_capacity(1000);
     /// ```
     pub fn with_capacity(capacity: usize) -> Self {
+        // Pre-allocate with a minimum capacity to avoid initial reallocations
+        let initial_capacity = if capacity == 0 { 16 } else { capacity };
         Self {
-            meta: Vec::with_capacity(capacity),
+            meta: Vec::with_capacity(initial_capacity),
             free_list: Vec::new(),
-            ephemeral_to_stable: HashMap::with_capacity(capacity),
-            stable_to_ephemeral: HashMap::with_capacity(capacity),
+            ephemeral_to_stable: HashMap::with_capacity(initial_capacity),
+            stable_to_ephemeral: HashMap::with_capacity(initial_capacity),
         }
     }
 
@@ -139,10 +136,34 @@ impl EntityAllocator {
         };
 
         // Update bidirectional mapping
+        // Using insert is fine here as we know these are new entries
         self.ephemeral_to_stable.insert(entity_id, stable_id);
         self.stable_to_ephemeral.insert(stable_id, entity_id);
 
         (entity_id, stable_id)
+    }
+
+    /// Reserves capacity for at least `additional` more entities.
+    ///
+    /// This can improve performance by reducing allocations when spawning
+    /// many entities.
+    ///
+    /// # Arguments
+    ///
+    /// * `additional` - Number of additional entities to reserve space for
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::allocator::EntityAllocator;
+    ///
+    /// let mut allocator = EntityAllocator::new();
+    /// allocator.reserve(1000);
+    /// ```
+    pub fn reserve(&mut self, additional: usize) {
+        self.meta.reserve(additional);
+        self.ephemeral_to_stable.reserve(additional);
+        self.stable_to_ephemeral.reserve(additional);
     }
 
     /// Frees an entity, making its slot available for recycling.
