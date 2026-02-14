@@ -192,6 +192,100 @@ impl World {
         entity_id
     }
 
+    /// Spawns an entity with a specific stable ID.
+    ///
+    /// This is useful for deserialization or when you need to restore entities
+    /// with their original stable IDs. If the stable ID already exists, this
+    /// returns an error to prevent ID conflicts.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID to use for the entity
+    ///
+    /// # Returns
+    ///
+    /// An `EntityBuilder` for adding components to the entity, or an error if
+    /// the stable ID is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::prelude::*;
+    ///
+    /// #[derive(Debug)]
+    /// struct Position { x: f32, y: f32 }
+    /// impl Component for Position {}
+    ///
+    /// let mut world = World::new();
+    /// let stable_id = StableId::from_raw(12345);
+    ///
+    /// let entity = world.spawn_with_stable_id(stable_id)
+    ///     .unwrap()
+    ///     .with(Position { x: 0.0, y: 0.0 })
+    ///     .id();
+    /// ```
+    pub fn spawn_with_stable_id(
+        &mut self,
+        stable_id: StableId,
+    ) -> Result<EntityBuilder<'_>, crate::entity::EntityError> {
+        let entity_id = self.entities.spawn_with_id(stable_id)?;
+
+        // Track entity creation for persistence
+        self.persistence
+            .change_tracker_mut()
+            .track_created(entity_id);
+
+        Ok(EntityBuilder {
+            world: self,
+            entity_id,
+            stable_id,
+            components: Vec::new(),
+        })
+    }
+
+    /// Spawns an empty entity with a specific stable ID.
+    ///
+    /// This is faster than using the builder if you don't need to add
+    /// components immediately. Useful for deserialization scenarios.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID to use for the entity
+    ///
+    /// # Returns
+    ///
+    /// The `EntityId` of the spawned entity, or an error if the stable ID
+    /// is already in use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    /// let stable_id = StableId::from_raw(12345);
+    /// let entity = world.spawn_empty_with_stable_id(stable_id).unwrap();
+    /// ```
+    pub fn spawn_empty_with_stable_id(
+        &mut self,
+        stable_id: StableId,
+    ) -> Result<EntityId, crate::entity::EntityError> {
+        let entity_id = self.entities.spawn_with_id(stable_id)?;
+
+        // Add to empty archetype
+        let empty_archetype_id = ArchetypeId::new(0);
+        if let Some(archetype) = self.archetypes.get_archetype_mut(empty_archetype_id) {
+            archetype.allocate_row(entity_id);
+        }
+
+        // Track entity creation for persistence
+        self.persistence
+            .change_tracker_mut()
+            .track_created(entity_id);
+
+        Ok(entity_id)
+    }
+
     /// Despawns an entity, removing it and all its components.
     ///
     /// # Arguments
@@ -1529,5 +1623,70 @@ mod tests {
         let removed = world.remove::<TestComponent>(entity);
         assert_eq!(removed.unwrap().value, 100);
         assert!(!world.has::<TestComponent>(entity));
+    }
+
+    #[test]
+    fn spawn_with_stable_id() {
+        let mut world = World::new();
+        let stable_id = StableId::from_raw(12345);
+
+        let entity = world.spawn_with_stable_id(stable_id).unwrap().id();
+        assert!(world.is_alive(entity));
+        assert_eq!(world.get_stable_id(entity), Some(stable_id));
+        assert_eq!(world.get_entity_id(stable_id), Some(entity));
+    }
+
+    #[test]
+    fn spawn_with_stable_id_with_components() {
+        let mut world = World::new();
+        let stable_id = StableId::from_raw(54321);
+
+        let entity = world
+            .spawn_with_stable_id(stable_id)
+            .unwrap()
+            .with(TestComponent { value: 99 })
+            .id();
+
+        assert!(world.is_alive(entity));
+        assert_eq!(world.get_stable_id(entity), Some(stable_id));
+        assert!(world.has::<TestComponent>(entity));
+        assert_eq!(world.get::<TestComponent>(entity).unwrap().value, 99);
+    }
+
+    #[test]
+    fn spawn_with_duplicate_stable_id() {
+        let mut world = World::new();
+        let stable_id = StableId::from_raw(99999);
+
+        // First spawn should succeed
+        world.spawn_with_stable_id(stable_id).unwrap().id();
+
+        // Second spawn with same stable ID should fail
+        let result = world.spawn_with_stable_id(stable_id);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn spawn_empty_with_stable_id() {
+        let mut world = World::new();
+        let stable_id = StableId::from_raw(11111);
+
+        let entity = world.spawn_empty_with_stable_id(stable_id).unwrap();
+        assert!(world.is_alive(entity));
+        assert_eq!(world.get_stable_id(entity), Some(stable_id));
+        assert_eq!(world.get_entity_id(stable_id), Some(entity));
+    }
+
+    #[test]
+    fn spawn_empty_with_duplicate_stable_id() {
+        let mut world = World::new();
+        let stable_id = StableId::from_raw(22222);
+
+        // First spawn should succeed
+        world.spawn_empty_with_stable_id(stable_id).unwrap();
+
+        // Second spawn with same stable ID should fail
+        let result = world.spawn_empty_with_stable_id(stable_id);
+        assert!(result.is_err());
     }
 }
