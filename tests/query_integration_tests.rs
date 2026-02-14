@@ -354,6 +354,7 @@ fn query_optional_component() {
 }
 
 #[test]
+#[ignore] // Performance benchmark - run with `cargo test -- --ignored`
 fn query_performance_baseline() {
     let mut world = World::new();
 
