@@ -71,6 +71,7 @@
 //! - [`world`]: Top-level ECS world
 //! - [`persistence`]: Pluggable persistence system
 
+pub mod bundle;
 pub mod command;
 pub mod component;
 pub mod entity;
@@ -78,17 +79,25 @@ pub mod persistence;
 pub mod query;
 pub mod world;
 
+// Re-export the derive macro
+pub use pecs_derive::Component;
+
 /// Convenient re-exports for common types.
 ///
 /// Use `use pecs::prelude::*;` to import all commonly used types.
 pub mod prelude {
+    pub use crate::bundle::Bundle;
     pub use crate::command::{Command, CommandBuffer};
     pub use crate::component::Component;
     pub use crate::entity::{EntityId, StableId};
     pub use crate::world::World;
+
+    // Re-export derive macro
+    pub use pecs_derive::Component;
 }
 
 // Re-export commonly used types
+pub use bundle::Bundle;
 pub use command::{Command, CommandBuffer};
 pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
