@@ -235,7 +235,7 @@ Current API gaps (documented in `API_GAPS.md`) prevent creating component and qu
 ### Week 7-8: API Refinement and Beta Preparation ✅ COMPLETE
 
 **Objective**: Refine API based on testing and prepare for beta release
-**Status**: ✅ COMPLETE - Critical bug fixed, query system fully functional
+**Status**: ✅ COMPLETE - All critical bugs fixed, archetype transitions fully working
 
 #### Tasks
 - [x] **Task 4.1**: Internal API testing ✅ COMPLETE
@@ -256,13 +256,23 @@ Current API gaps (documented in `API_GAPS.md`) prevent creating component and qu
   - **Completed**: 2026-02-13
   - **Documentation**: See QUERY_SYSTEM_FIX.md
 
+- [x] **Task 4.1.2**: Fix Archetype Transition Bugs ✅ COMPLETE
+  - ✅ Fixed EntityBuilder component storage (Box<dyn Any> pointer casting)
+  - ✅ Added entity location tracking in EntityBuilder
+  - ✅ Implemented proper archetype transitions in World::remove()
+  - ✅ Components now preserved during remove operations
+  - ✅ Test Results: 202/202 tests passing (100%)
+  - **Completed**: 2026-02-14
+  - **Documentation**: See API_GAPS.md
+
 - [x] **Task 4.2**: API refinement ✅ COMPLETE
   - ✅ Fixed critical component storage bug
+  - ✅ Fixed archetype transition bugs
   - ✅ Improved error messages
   - ✅ Query system fully functional
   - ✅ All core APIs working correctly
   - **Status**: COMPLETE
-  - **Completed**: 2026-02-13
+  - **Completed**: 2026-02-14
 
 - [ ] **Task 4.3**: Error handling improvements
   - Comprehensive error types
@@ -287,9 +297,10 @@ Current API gaps (documented in `API_GAPS.md`) prevent creating component and qu
 
 **Deliverables**: ✅ Complete
 - ✅ Refined API (query system fixed and functional)
+- ✅ Archetype transitions fully working
 - ✅ Comprehensive error handling (improved error messages)
-- ✅ Testing reports (201/202 tests passing)
-- ✅ Bug fix documentation (QUERY_SYSTEM_FIX.md)
+- ✅ Testing reports (202/202 tests passing - 100%)
+- ✅ Bug fix documentation (QUERY_SYSTEM_FIX.md, API_GAPS.md)
 - ⏳ Beta release package (deferred to Phase 4)
 - ⏳ Release documentation (deferred to Phase 4)
 
@@ -297,9 +308,10 @@ Current API gaps (documented in `API_GAPS.md`) prevent creating component and qu
 
 **Summary**:
 - Fixed critical EntityBuilder bug preventing component storage
-- Query system now fully functional (12/13 integration tests passing)
-- 201 out of 202 total tests passing (99.5% pass rate)
-- One known limitation documented (component removal archetype transitions)
+- Fixed archetype transition bugs in EntityBuilder and World::remove()
+- Query system now fully functional (all integration tests passing)
+- 202 out of 202 total tests passing (100% pass rate)
+- All known API gaps resolved
 - Ready for beta testing phase
 
 ---
