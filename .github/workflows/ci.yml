@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        rust: [ stable, beta ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -136,7 +136,7 @@ jobs:
         run: cargo doc --no-deps --all-features --workspace
 
       - name: Add index redirect
-        run: echo '<meta http-equiv="refresh" content="0; url=bdrpc/index.html">' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0; url=pecs/index.html">' > target/doc/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -151,7 +151,7 @@ jobs:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [test, fmt, clippy, security]
+    needs: [ test, fmt, clippy, security ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -177,7 +177,7 @@ jobs:
           echo "Tag version: $TAG_VERSION"
           
           # Check each crate version
-          for crate in ansicodec telnetcodec terminal compress service; do
+          for crate in pecs; do
             CRATE_VERSION=$(grep -m1 '^version' $crate/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
             echo "$crate version: $CRATE_VERSION"
             if [ "$CRATE_VERSION" != "$TAG_VERSION" ]; then
@@ -186,14 +186,6 @@ jobs:
             fi
           done
 
-      - name: Publish bdrpc
-        run: cargo publish --package ansicodec --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish pecs
+        run: cargo publish --package pecs --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
         continue-on-error: false
-
-      - name: Wait for bdrpc to be available
-        run: sleep 30
-
-      - name: Publish bdrpc-derive
-        run: cargo publish --package telnetcodec --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: false
-
