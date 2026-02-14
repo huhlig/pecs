@@ -1,3 +1,19 @@
+//
+// Copyright 2026 Hans W. Uhlig. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
 //! Command buffer system for thread-safe deferred operations.
 //!
 //! This module provides a command buffer system that allows operations to be
@@ -15,19 +31,18 @@
 //! # Examples
 //!
 //! ```
-//! use pecs::command::CommandBuffer;
-//! use pecs::entity::EntityManager;
+//! use pecs::prelude::*;
 //!
-//! let mut buffer = CommandBuffer::new();
-//! let mut manager = EntityManager::new();
+//! let mut world = World::new();
+//! let commands = world.commands();
 //!
 //! // Record commands
-//! buffer.spawn();
-//! buffer.spawn();
+//! commands.spawn();
+//! commands.spawn();
 //!
 //! // Apply commands to the world
-//! buffer.apply(&mut manager);
-//! assert_eq!(manager.len(), 2);
+//! world.apply_commands();
+//! assert_eq!(world.len(), 2);
 //! ```
 
 use crate::component::Component;
@@ -77,18 +92,17 @@ pub trait Command: Send {
 /// # Examples
 ///
 /// ```
-/// use pecs::command::CommandBuffer;
-/// use pecs::entity::EntityManager;
+/// use pecs::prelude::*;
 ///
-/// let mut buffer = CommandBuffer::new();
-/// let mut manager = EntityManager::new();
+/// let mut world = World::new();
+/// let commands = world.commands();
 ///
 /// // Record some commands
-/// let entity = buffer.spawn();
-/// buffer.despawn(entity);
+/// let entity = commands.spawn();
+/// commands.despawn(entity);
 ///
 /// // Apply all commands at once
-/// buffer.apply(&mut manager);
+/// world.apply_commands();
 /// ```
 pub struct CommandBuffer {
     /// The list of commands to be executed
@@ -169,16 +183,15 @@ impl CommandBuffer {
     /// # Examples
     ///
     /// ```
-    /// use pecs::command::CommandBuffer;
-    /// use pecs::entity::EntityManager;
+    /// use pecs::prelude::*;
     ///
-    /// let mut buffer = CommandBuffer::new();
-    /// let mut manager = EntityManager::new();
-    /// let entity = manager.spawn();
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty();
     ///
-    /// buffer.despawn(entity);
-    /// buffer.apply(&mut manager);
-    /// assert!(!manager.is_alive(entity));
+    /// let commands = world.commands();
+    /// commands.despawn(entity);
+    /// world.apply_commands();
+    /// assert!(!world.is_alive(entity));
     /// ```
     pub fn despawn(&mut self, entity: EntityId) {
         self.commands.push(Box::new(DespawnCommand { entity }));
@@ -515,5 +528,3 @@ mod tests {
         assert_eq!(buffer.len(), 2); // spawn + remove
     }
 }
-
-// Made with Bob

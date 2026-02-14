@@ -565,5 +565,3 @@ criterion_main!(
     world_benches,
     persistence_benches
 );
-
-// Made with Bob

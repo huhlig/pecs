@@ -385,5 +385,3 @@ fn query_performance_baseline() {
     // Should be very fast (< 1ms for 10k entities)
     assert!(duration.as_millis() < 10, "Query should be fast");
 }
-
-// Made with Bob

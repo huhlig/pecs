@@ -205,5 +205,3 @@ fn sequential_insert_replace_component() {
     assert_eq!(vel.x, 3.0);
     assert_eq!(vel.y, 4.0);
 }
-
-// Made with Bob

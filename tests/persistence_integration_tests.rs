@@ -390,5 +390,3 @@ fn test_default_plugin_selection() {
 
     cleanup_test_file(&path);
 }
-
-// Made with Bob

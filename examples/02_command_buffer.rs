@@ -74,5 +74,3 @@ fn main() {
 
     println!("\n=== Example Complete ===");
 }
-
-// Made with Bob

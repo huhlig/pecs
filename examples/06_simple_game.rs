@@ -336,5 +336,3 @@ fn main() {
     println!("Note: Persistence requires SerializableComponent implementation");
     println!("This is a known limitation documented in API_GAPS.md");
 }
-
-// Made with Bob
