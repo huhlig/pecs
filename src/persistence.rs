@@ -48,6 +48,7 @@
 //! ```
 
 pub mod binary;
+pub mod entity_kv;
 pub mod error;
 pub mod json;
 pub mod manager;
@@ -55,11 +56,12 @@ pub mod metadata;
 pub mod plugin;
 
 pub use binary::BinaryPlugin;
+pub use entity_kv::KeyValueEntityPlugin;
 pub use error::{PersistenceError, Result};
 pub use json::JsonPlugin;
 pub use manager::PersistenceManager;
 pub use metadata::{ChangeTracker, ComponentTypeInfo, WorldMetadata};
 pub use plugin::{
-    ComponentData, DeltaPersistencePlugin, EntityChange, Migration, PersistencePlugin,
-    SerializableComponent,
+    ComponentData, DeltaPersistencePlugin, EntityChange, EntityData, EntityPersistencePlugin,
+    Migration, PersistencePlugin, SerializableComponent,
 };

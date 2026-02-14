@@ -371,6 +371,25 @@ impl World {
         self.entities.get_entity_id(stable_id)
     }
 
+    /// Gets the entity ID for a stable ID (alias for `get_entity_id`).
+    ///
+    /// This is an alias for [`get_entity_id`](Self::get_entity_id) provided
+    /// for API consistency with entity persistence operations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::World;
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty();
+    /// let stable_id = world.get_stable_id(entity).unwrap();
+    /// assert_eq!(world.get_entity_by_stable_id(stable_id), Some(entity));
+    /// ```
+    pub fn get_entity_by_stable_id(&self, stable_id: StableId) -> Option<EntityId> {
+        self.get_entity_id(stable_id)
+    }
+
     /// Returns the number of alive entities.
     ///
     /// # Examples

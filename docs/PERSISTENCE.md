@@ -6,14 +6,15 @@ This guide provides comprehensive documentation on PECS's persistence system, co
 
 1. [Overview](#overview)
 2. [Quick Start](#quick-start)
-3. [Binary Format](#binary-format)
-4. [JSON Format](#json-format)
-5. [Custom Plugins](#custom-plugins)
-6. [Transient Components](#transient-components)
-7. [Version Migrations](#version-migrations)
-8. [Performance Optimization](#performance-optimization)
-9. [Error Handling](#error-handling)
-10. [Best Practices](#best-practices)
+3. [Entity-Specific Persistence](#entity-specific-persistence)
+4. [Binary Format](#binary-format)
+5. [JSON Format](#json-format)
+6. [Custom Plugins](#custom-plugins)
+7. [Transient Components](#transient-components)
+8. [Version Migrations](#version-migrations)
+9. [Performance Optimization](#performance-optimization)
+10. [Error Handling](#error-handling)
+11. [Best Practices](#best-practices)
 
 ---
 
@@ -85,6 +86,380 @@ world.save_binary_stream(&mut file)?;
 let mut file = File::open("large-world.pecs")?;
 let world = World::load_binary_stream(&mut file)?;
 ```
+
+---
+
+## Entity-Specific Persistence
+
+PECS provides entity-specific persistence capabilities through the `EntityPersistencePlugin` trait, allowing you to save and load individual entities rather than entire worlds. This is ideal for database backends, key-value stores, and scenarios where you need granular control over entity persistence.
+
+### Overview
+
+Entity-specific persistence differs from world persistence in several key ways:
+
+| Feature | World Persistence | Entity Persistence | Delta Persistence |
+|---------|------------------|-------------------|-------------------|
+| **Scope** | Entire world | Individual entities | Changed entities |
+| **Use Case** | Save games, snapshots | Databases, lazy loading | Incremental updates |
+| **Performance** | Batch operations | Granular operations | Efficient updates |
+| **Backend** | File-based | Database, KV store | Any backend |
+| **Granularity** | All entities | Single entity | Modified entities |
+| **Network** | Full sync | Selective sync | Incremental sync |
+| **Memory** | High (full world) | Low (single entity) | Medium (changes) |
+
+### When to Use Each
+
+**World Persistence** (`PersistencePlugin`):
+- Save game files
+- Complete world snapshots
+- Backup/restore operations
+- Single-player games
+- Small to medium worlds
+
+**Entity Persistence** (`EntityPersistencePlugin`):
+- Database backends (SQL, NoSQL)
+- Lazy loading large worlds
+- Multiplayer entity sync
+- Persistent world chunks
+- Key-value stores (Redis, DynamoDB)
+
+**Delta Persistence** (`DeltaPersistencePlugin`):
+- Real-time synchronization
+- Incremental backups
+- Change streaming
+- Network replication
+- Audit logs
+
+### Quick Start
+
+```rust
+use pecs::prelude::*;
+use pecs::persistence::{KeyValueEntityPlugin, PersistenceManager};
+
+// Create a world and persistence manager
+let mut world = World::new();
+let mut manager = PersistenceManager::new();
+
+// Register an entity persistence plugin
+manager.register_entity_plugin("kv", Box::new(KeyValueEntityPlugin::new()));
+
+// Spawn an entity
+let entity = world.spawn()
+    .with(Position { x: 1.0, y: 2.0 })
+    .with(Velocity { x: 0.5, y: 0.0 })
+    .id();
+
+// Save the specific entity
+manager.save_entity(&world, entity)?;
+
+// Get the stable ID for later retrieval
+let stable_id = world.get_stable_id(entity).unwrap();
+
+// Load the entity back (even in a different world)
+let mut new_world = World::new();
+let loaded_entity = manager.load_entity(&mut new_world, stable_id)?;
+```
+
+### EntityPersistencePlugin Trait
+
+The `EntityPersistencePlugin` trait defines the interface for entity-specific persistence:
+
+```rust
+pub trait EntityPersistencePlugin: Send + Sync {
+    /// Save a specific entity to persistent storage
+    fn save_entity(&self, world: &World, entity: EntityId) -> Result<()>;
+    
+    /// Load a specific entity from persistent storage
+    fn load_entity(&self, world: &mut World, stable_id: StableId) -> Result<EntityId>;
+    
+    /// Delete a specific entity from persistent storage
+    fn delete_entity(&self, stable_id: StableId) -> Result<()>;
+    
+    /// Check if an entity exists in persistent storage
+    fn entity_exists(&self, stable_id: StableId) -> Result<bool>;
+    
+    /// Save multiple entities in a batch operation
+    fn save_entities(&self, world: &World, entities: &[EntityId]) -> Result<()>;
+    
+    /// Load multiple entities in a batch operation
+    fn load_entities(&self, world: &mut World, stable_ids: &[StableId]) -> Result<Vec<EntityId>>;
+    
+    /// Get the name of this entity persistence backend
+    fn backend_name(&self) -> &str;
+    
+    /// Get the version of this backend implementation
+    fn backend_version(&self) -> u32;
+}
+```
+
+### Built-in Plugin: KeyValueEntityPlugin
+
+PECS includes a simple in-memory key-value entity plugin for testing and reference:
+
+```rust
+use pecs::persistence::KeyValueEntityPlugin;
+
+// Create the plugin
+let plugin = KeyValueEntityPlugin::new();
+
+// Or with pre-allocated capacity
+let plugin = KeyValueEntityPlugin::with_capacity(1000);
+
+// Use with PersistenceManager
+manager.register_entity_plugin("memory", Box::new(plugin));
+```
+
+### Using with PersistenceManager
+
+The `PersistenceManager` provides convenient methods for entity-specific operations:
+
+```rust
+// Save a single entity
+manager.save_entity(&world, entity)?;
+
+// Save with a specific plugin
+manager.save_entity_with(&world, entity, "redis")?;
+
+// Load an entity
+let entity_id = manager.load_entity(&mut world, stable_id)?;
+
+// Load with a specific plugin
+let entity_id = manager.load_entity_with(&mut world, stable_id, "database")?;
+
+// Check if entity exists
+if manager.entity_exists(stable_id)? {
+    println!("Entity exists in storage");
+}
+
+// Delete an entity
+manager.delete_entity(stable_id)?;
+```
+
+### Batch Operations
+
+For better performance, use batch operations when working with multiple entities:
+
+```rust
+// Save multiple entities at once
+let entities = vec![entity1, entity2, entity3];
+manager.save_entity_with(&world, &entities, "database")?;
+
+// Load multiple entities
+let stable_ids = vec![id1, id2, id3];
+let loaded_entities = manager.load_entities(&mut world, &stable_ids, "database")?;
+```
+
+### Custom Entity Persistence Plugin
+
+You can implement custom entity persistence plugins for your specific backend:
+
+```rust
+use pecs::persistence::{EntityPersistencePlugin, Result};
+use pecs::entity::{EntityId, StableId};
+use pecs::World;
+
+struct RedisEntityPlugin {
+    client: redis::Client,
+}
+
+impl EntityPersistencePlugin for RedisEntityPlugin {
+    fn save_entity(&self, world: &World, entity: EntityId) -> Result<()> {
+        // Get stable ID
+        let stable_id = world.get_stable_id(entity)
+            .ok_or_else(|| PersistenceError::EntityNotFound(entity))?;
+        
+        // Serialize entity and components
+        // ... your serialization logic ...
+        
+        // Store in Redis
+        let key = format!("entity:{}", stable_id);
+        self.client.set(key, serialized_data)?;
+        
+        Ok(())
+    }
+    
+    fn load_entity(&self, world: &mut World, stable_id: StableId) -> Result<EntityId> {
+        // Fetch from Redis
+        let key = format!("entity:{}", stable_id);
+        let data = self.client.get(key)?;
+        
+        // Deserialize and restore entity
+        // ... your deserialization logic ...
+        
+        Ok(entity_id)
+    }
+    
+    fn delete_entity(&self, stable_id: StableId) -> Result<()> {
+        let key = format!("entity:{}", stable_id);
+        self.client.del(key)?;
+        Ok(())
+    }
+    
+    fn entity_exists(&self, stable_id: StableId) -> Result<bool> {
+        let key = format!("entity:{}", stable_id);
+        Ok(self.client.exists(key)?)
+    }
+    
+    fn backend_name(&self) -> &str {
+        "redis"
+    }
+}
+```
+
+### Use Cases
+
+Entity-specific persistence is ideal for:
+
+1. **Database Backends**: Store entities in SQL or NoSQL databases
+2. **Lazy Loading**: Load entities on-demand rather than all at once
+3. **Multiplayer Games**: Sync individual player entities across network
+4. **Persistent Worlds**: Save/load specific regions or chunks
+5. **Entity Caching**: Cache frequently accessed entities in Redis/Memcached
+6. **Incremental Saves**: Save only modified entities
+
+### Best Practices
+
+1. **Use Stable IDs**: Always use stable IDs for entity references across sessions
+2. **Batch Operations**: Use batch save/load for better performance
+3. **Error Handling**: Handle missing entities gracefully
+4. **Versioning**: Include version information in your custom plugins
+5. **Transient Components**: Mark cache/temporary data as transient
+6. **Connection Pooling**: Reuse database connections in custom plugins
+
+### Performance Considerations
+
+- **Batch vs Individual**: Batch operations are 10-100x faster for multiple entities
+- **Network Latency**: Consider latency when using remote backends
+- **Serialization**: Binary formats are faster than JSON for large entities
+- **Caching**: Cache frequently accessed entities in memory
+
+### Real-World Examples
+
+#### Example 1: Player Inventory System
+
+```rust
+use pecs::persistence::{KeyValueEntityPlugin, PersistenceManager};
+use pecs::prelude::*;
+
+#[derive(Component)]
+struct PlayerInventory {
+    items: Vec<Item>,
+    gold: u32,
+}
+
+// Save player inventory when it changes
+fn save_player_inventory(
+    world: &World,
+    manager: &PersistenceManager,
+    player_entity: EntityId,
+) -> Result<()> {
+    manager.save_entity(world, player_entity)?;
+    Ok(())
+}
+
+// Load player inventory on login
+fn load_player_inventory(
+    world: &mut World,
+    manager: &PersistenceManager,
+    player_id: StableId,
+) -> Result<EntityId> {
+    manager.load_entity(world, player_id)
+}
+```
+
+#### Example 2: Chunk-Based World Loading
+
+```rust
+struct WorldChunk {
+    x: i32,
+    z: i32,
+    entities: Vec<StableId>,
+}
+
+// Load only visible chunks
+fn load_visible_chunks(
+    world: &mut World,
+    manager: &PersistenceManager,
+    player_pos: (i32, i32),
+    view_distance: i32,
+) -> Result<()> {
+    let (px, pz) = player_pos;
+    
+    for x in (px - view_distance)..=(px + view_distance) {
+        for z in (pz - view_distance)..=(pz + view_distance) {
+            // Load chunk entities
+            let chunk_entities = get_chunk_entities(x, z);
+            for stable_id in chunk_entities {
+                if !manager.entity_exists(stable_id)? {
+                    continue;
+                }
+                manager.load_entity(world, stable_id)?;
+            }
+        }
+    }
+    Ok(())
+}
+```
+
+#### Example 3: Auto-Save System
+
+```rust
+use std::time::{Duration, Instant};
+
+struct AutoSaveSystem {
+    last_save: Instant,
+    save_interval: Duration,
+    dirty_entities: Vec<EntityId>,
+}
+
+impl AutoSaveSystem {
+    fn new(save_interval_secs: u64) -> Self {
+        Self {
+            last_save: Instant::now(),
+            save_interval: Duration::from_secs(save_interval_secs),
+            dirty_entities: Vec::new(),
+        }
+    }
+    
+    fn mark_dirty(&mut self, entity: EntityId) {
+        if !self.dirty_entities.contains(&entity) {
+            self.dirty_entities.push(entity);
+        }
+    }
+    
+    fn update(
+        &mut self,
+        world: &World,
+        manager: &PersistenceManager,
+    ) -> Result<()> {
+        if self.last_save.elapsed() >= self.save_interval {
+            // Save all dirty entities
+            for &entity in &self.dirty_entities {
+                manager.save_entity(world, entity)?;
+            }
+            
+            self.dirty_entities.clear();
+            self.last_save = Instant::now();
+        }
+        Ok(())
+    }
+}
+```
+
+### Troubleshooting
+
+**Problem**: Entity not found when loading  
+**Solution**: Verify the stable ID is correct and the entity was saved
+
+**Problem**: Slow performance with many entities  
+**Solution**: Use batch operations instead of individual saves/loads
+
+**Problem**: Memory usage too high  
+**Solution**: Implement lazy loading and unload distant entities
+
+**Problem**: Concurrent access issues  
+**Solution**: Use appropriate locking in your custom plugin implementation
+
 
 ---
 

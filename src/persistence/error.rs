@@ -90,6 +90,16 @@ pub enum PersistenceError {
     /// This wraps errors from custom persistence plugins.
     PluginError(String),
 
+    /// Entity not found.
+    ///
+    /// This occurs when trying to access an entity that doesn't exist.
+    EntityNotFound(crate::entity::EntityId),
+
+    /// Custom error with a message.
+    ///
+    /// This is a catch-all for errors that don't fit other categories.
+    Custom(String),
+
     /// Checksum mismatch detected.
     ///
     /// This indicates data corruption during save or load.
@@ -313,6 +323,14 @@ impl fmt::Display for PersistenceError {
             Self::PluginError(msg) => {
                 write!(f, "Plugin error: {}", msg)?;
                 write!(f, "\nCheck the plugin implementation for errors")?;
+                Ok(())
+            }
+            Self::EntityNotFound(entity) => {
+                write!(f, "Entity not found: {}", entity)?;
+                Ok(())
+            }
+            Self::Custom(msg) => {
+                write!(f, "{}", msg)?;
                 Ok(())
             }
             Self::ChecksumMismatch { expected, actual } => {

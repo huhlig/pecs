@@ -26,7 +26,7 @@ Demonstrates the command buffer system for deferred operations:
 - Thread-safe operation recording (conceptual)
 
 ### 03. Persistence
-**File**: `03_persistence.rs`  
+**File**: `03_persistence.rs`
 **Run**: `cargo run --example 03_persistence`
 
 Shows how to save and load worlds:
@@ -34,6 +34,18 @@ Shows how to save and load worlds:
 - JSON format for human-readable saves
 - Stable ID preservation across save/load
 - In-memory and file-based persistence
+
+### 07. Entity-Specific Persistence
+**File**: `07_entity_persistence.rs`
+**Run**: `cargo run --example 07_entity_persistence`
+
+Demonstrates entity-level persistence for database backends:
+- Saving and loading individual entities
+- Entity existence checks and deletion
+- Batch operations for multiple entities
+- Simulated database-like operations
+- Using KeyValueEntityPlugin
+- Best practices for entity persistence
 
 ## Performance Examples
 
@@ -87,7 +99,8 @@ cargo run --example 04_performance --release
 - `02_command_buffer` - Learn about deferred operations
 
 ### Persistence
-- `03_persistence` - Save and load worlds
+- `03_persistence` - Save and load entire worlds
+- `07_entity_persistence` - Save and load individual entities
 
 ### Performance
 - `04_performance` - Optimization techniques

@@ -17,7 +17,7 @@
 //! Plugin trait for custom persistence formats.
 
 use crate::World;
-use crate::entity::EntityId;
+use crate::entity::{EntityId, StableId};
 use crate::persistence::Result;
 use std::io::{Read, Write};
 
@@ -425,4 +425,253 @@ pub trait Migration: Send + Sync {
     ///
     /// Returns an error if migration fails.
     fn migrate(&self, world: &mut World) -> Result<()>;
+}
+
+/// Trait for implementing entity-specific persistence.
+///
+/// This trait enables saving and loading individual entities to/from persistent storage,
+/// such as databases or key-value stores. Unlike `PersistencePlugin` which saves entire
+/// worlds, and `DeltaPersistencePlugin` which tracks changes, this plugin focuses on
+/// granular entity-level operations.
+///
+/// # Use Cases
+///
+/// - Database backends (SQL, NoSQL) with entity-level queries
+/// - Key-value stores (Redis, DynamoDB)
+/// - Entity-specific save/load operations
+/// - Lazy loading of entities on demand
+/// - Selective entity persistence
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use pecs::persistence::{EntityPersistencePlugin, Result};
+/// use pecs::entity::{EntityId, StableId};
+/// use pecs::World;
+///
+/// struct RedisEntityBackend {
+///     client: redis::Client,
+/// }
+///
+/// impl EntityPersistencePlugin for RedisEntityBackend {
+///     fn save_entity(&self, world: &World, entity: EntityId) -> Result<()> {
+///         // Serialize entity and its components to Redis
+///         let stable_id = world.get_stable_id(entity)?;
+///         let components = world.get_entity_components(entity)?;
+///         // Store in Redis with stable_id as key
+///         Ok(())
+///     }
+///
+///     fn load_entity(&self, world: &mut World, stable_id: StableId) -> Result<EntityId> {
+///         // Load entity from Redis and restore to world
+///         let components = self.fetch_from_redis(stable_id)?;
+///         let entity = world.spawn_with_stable_id(stable_id)?;
+///         // Restore components...
+///         Ok(entity.id())
+///     }
+///
+///     fn delete_entity(&self, stable_id: StableId) -> Result<()> {
+///         // Delete entity from Redis
+///         Ok(())
+///     }
+///
+///     fn entity_exists(&self, stable_id: StableId) -> Result<bool> {
+///         // Check if entity exists in Redis
+///         Ok(true)
+///     }
+/// }
+/// ```
+pub trait EntityPersistencePlugin: Send + Sync {
+    /// Save a specific entity to persistent storage.
+    ///
+    /// This method serializes the entity and all its non-transient components
+    /// to the backend storage system.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world containing the entity
+    /// * `entity` - The entity ID to save
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The entity doesn't exist
+    /// - Serialization fails
+    /// - Storage operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// plugin.save_entity(&world, entity_id)?;
+    /// ```
+    fn save_entity(&self, world: &World, entity: EntityId) -> Result<()>;
+
+    /// Load a specific entity from persistent storage.
+    ///
+    /// This method deserializes an entity and its components from the backend
+    /// storage system and restores it to the world. If the entity already exists
+    /// in the world (by stable ID), it will be updated with the loaded data.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to load the entity into
+    /// * `stable_id` - The stable ID of the entity to load
+    ///
+    /// # Returns
+    ///
+    /// The `EntityId` of the loaded or updated entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The entity doesn't exist in storage
+    /// - Deserialization fails
+    /// - Storage operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let entity_id = plugin.load_entity(&mut world, stable_id)?;
+    /// ```
+    fn load_entity(&self, world: &mut World, stable_id: StableId) -> Result<EntityId>;
+
+    /// Delete a specific entity from persistent storage.
+    ///
+    /// This removes the entity and all its components from the backend storage.
+    /// It does not affect the entity in the world - use `World::despawn` for that.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to delete
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the storage operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// plugin.delete_entity(stable_id)?;
+    /// ```
+    fn delete_entity(&self, stable_id: StableId) -> Result<()>;
+
+    /// Check if an entity exists in persistent storage.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the entity exists in storage, `false` otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the storage operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// if plugin.entity_exists(stable_id)? {
+    ///     println!("Entity exists in storage");
+    /// }
+    /// ```
+    fn entity_exists(&self, stable_id: StableId) -> Result<bool>;
+
+    /// Save multiple entities in a batch operation.
+    ///
+    /// Default implementation calls `save_entity` for each entity.
+    /// Override this for backends that support efficient batch operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world containing the entities
+    /// * `entities` - Slice of entity IDs to save
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any save operation fails.
+    fn save_entities(&self, world: &World, entities: &[EntityId]) -> Result<()> {
+        for &entity in entities {
+            self.save_entity(world, entity)?;
+        }
+        Ok(())
+    }
+
+    /// Load multiple entities in a batch operation.
+    ///
+    /// Default implementation calls `load_entity` for each stable ID.
+    /// Override this for backends that support efficient batch operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to load entities into
+    /// * `stable_ids` - Slice of stable IDs to load
+    ///
+    /// # Returns
+    ///
+    /// A vector of loaded entity IDs in the same order as the input stable IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any load operation fails.
+    fn load_entities(&self, world: &mut World, stable_ids: &[StableId]) -> Result<Vec<EntityId>> {
+        let mut entity_ids = Vec::with_capacity(stable_ids.len());
+        for &stable_id in stable_ids {
+            entity_ids.push(self.load_entity(world, stable_id)?);
+        }
+        Ok(entity_ids)
+    }
+
+    /// Get the name of this entity persistence backend.
+    ///
+    /// Used for plugin registration and identification.
+    fn backend_name(&self) -> &str;
+
+    /// Get the version of this backend implementation.
+    ///
+    /// Used for compatibility checking and migrations.
+    fn backend_version(&self) -> u32 {
+        1
+    }
+}
+
+/// Serialized entity data for entity-specific persistence.
+///
+/// This structure contains all the information needed to persist and restore
+/// a single entity, including its stable ID and all non-transient components.
+#[derive(Debug, Clone)]
+pub struct EntityData {
+    /// The stable ID of the entity.
+    pub stable_id: StableId,
+    /// Serialized component data.
+    pub components: Vec<ComponentData>,
+    /// Timestamp when this entity data was created.
+    pub timestamp: u64,
+}
+
+impl EntityData {
+    /// Create a new EntityData instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity
+    /// * `components` - The serialized component data
+    /// * `timestamp` - When this data was created
+    pub fn new(stable_id: StableId, components: Vec<ComponentData>, timestamp: u64) -> Self {
+        Self {
+            stable_id,
+            components,
+            timestamp,
+        }
+    }
+
+    /// Get the current timestamp.
+    pub fn current_timestamp() -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
 }

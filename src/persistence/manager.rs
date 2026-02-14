@@ -21,9 +21,10 @@ use std::fs::File;
 use std::path::Path;
 
 use crate::World;
+use crate::entity::{EntityId, StableId};
 use crate::persistence::{
-    ChangeTracker, DeltaPersistencePlugin, EntityChange, Migration, PersistenceError,
-    PersistencePlugin, Result,
+    ChangeTracker, DeltaPersistencePlugin, EntityChange, EntityPersistencePlugin, Migration,
+    PersistenceError, PersistencePlugin, Result,
 };
 
 /// Manages persistence operations and plugin lifecycle.
@@ -59,11 +60,17 @@ pub struct PersistenceManager {
     /// Registered delta persistence plugins by name
     delta_plugins: HashMap<String, Box<dyn DeltaPersistencePlugin>>,
 
+    /// Registered entity persistence plugins by name
+    entity_plugins: HashMap<String, Box<dyn EntityPersistencePlugin>>,
+
     /// Registered migrations by version range
     migrations: Vec<Box<dyn Migration>>,
 
     /// Default plugin name
     default_plugin: Option<String>,
+
+    /// Default entity plugin name
+    default_entity_plugin: Option<String>,
 
     /// Change tracker for delta persistence
     change_tracker: ChangeTracker,
@@ -83,8 +90,10 @@ impl PersistenceManager {
         Self {
             plugins: HashMap::new(),
             delta_plugins: HashMap::new(),
+            entity_plugins: HashMap::new(),
             migrations: Vec::new(),
             default_plugin: None,
+            default_entity_plugin: None,
             change_tracker: ChangeTracker::new(),
         }
     }
@@ -129,6 +138,30 @@ impl PersistenceManager {
         self.delta_plugins.insert(name.into(), plugin);
     }
 
+    /// Registers an entity persistence plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Unique name for the plugin
+    /// * `plugin` - The entity plugin implementation
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// manager.register_entity_plugin("redis", Box::new(RedisEntityPlugin));
+    /// ```
+    pub fn register_entity_plugin(
+        &mut self,
+        name: impl Into<String>,
+        plugin: Box<dyn EntityPersistencePlugin>,
+    ) {
+        let name = name.into();
+        if self.default_entity_plugin.is_none() {
+            self.default_entity_plugin = Some(name.clone());
+        }
+        self.entity_plugins.insert(name, plugin);
+    }
+
     /// Registers a version migration.
     ///
     /// Migrations are automatically applied when loading older versions.
@@ -161,6 +194,24 @@ impl PersistenceManager {
             return Err(PersistenceError::PluginNotFound(name));
         }
         self.default_plugin = Some(name);
+        Ok(())
+    }
+
+    /// Sets the default entity plugin to use for entity-specific operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Name of the entity plugin to use as default
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the plugin is not registered.
+    pub fn set_default_entity_plugin(&mut self, name: impl Into<String>) -> Result<()> {
+        let name = name.into();
+        if !self.entity_plugins.contains_key(&name) {
+            return Err(PersistenceError::PluginNotFound(name));
+        }
+        self.default_entity_plugin = Some(name);
         Ok(())
     }
 
@@ -572,6 +623,262 @@ impl PersistenceManager {
     /// Gets the name of the default plugin, if set.
     pub fn default_plugin(&self) -> Option<&str> {
         self.default_plugin.as_deref()
+    }
+
+    /// Saves a specific entity using the default entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world containing the entity
+    /// * `entity` - The entity ID to save
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default entity plugin is registered
+    /// - The entity doesn't exist
+    /// - Saving fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// manager.save_entity(&world, entity_id)?;
+    /// ```
+    pub fn save_entity(&self, world: &World, entity: EntityId) -> Result<()> {
+        let plugin_name = self
+            .default_entity_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default entity plugin".to_string()))?;
+        self.save_entity_with(world, entity, plugin_name)
+    }
+
+    /// Saves a specific entity using a named entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world containing the entity
+    /// * `entity` - The entity ID to save
+    /// * `plugin_name` - Name of the entity plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - The entity doesn't exist
+    /// - Saving fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// manager.save_entity_with(&world, entity_id, "redis")?;
+    /// ```
+    pub fn save_entity_with(
+        &self,
+        world: &World,
+        entity: EntityId,
+        plugin_name: &str,
+    ) -> Result<()> {
+        let plugin = self
+            .entity_plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        plugin.save_entity(world, entity)
+    }
+
+    /// Loads a specific entity using the default entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to load the entity into
+    /// * `stable_id` - The stable ID of the entity to load
+    ///
+    /// # Returns
+    ///
+    /// The `EntityId` of the loaded entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default entity plugin is registered
+    /// - The entity doesn't exist in storage
+    /// - Loading fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let entity_id = manager.load_entity(&mut world, stable_id)?;
+    /// ```
+    pub fn load_entity(&self, world: &mut World, stable_id: StableId) -> Result<EntityId> {
+        let plugin_name = self
+            .default_entity_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default entity plugin".to_string()))?;
+        self.load_entity_with(world, stable_id, plugin_name)
+    }
+
+    /// Loads a specific entity using a named entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `world` - The world to load the entity into
+    /// * `stable_id` - The stable ID of the entity to load
+    /// * `plugin_name` - Name of the entity plugin to use
+    ///
+    /// # Returns
+    ///
+    /// The `EntityId` of the loaded entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - The entity doesn't exist in storage
+    /// - Loading fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let entity_id = manager.load_entity_with(&mut world, stable_id, "redis")?;
+    /// ```
+    pub fn load_entity_with(
+        &self,
+        world: &mut World,
+        stable_id: StableId,
+        plugin_name: &str,
+    ) -> Result<EntityId> {
+        let plugin = self
+            .entity_plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        plugin.load_entity(world, stable_id)
+    }
+
+    /// Deletes a specific entity from storage using the default entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to delete
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default entity plugin is registered
+    /// - Deletion fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// manager.delete_entity(stable_id)?;
+    /// ```
+    pub fn delete_entity(&self, stable_id: StableId) -> Result<()> {
+        let plugin_name = self
+            .default_entity_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default entity plugin".to_string()))?;
+        self.delete_entity_with(stable_id, plugin_name)
+    }
+
+    /// Deletes a specific entity from storage using a named entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to delete
+    /// * `plugin_name` - Name of the entity plugin to use
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - Deletion fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// manager.delete_entity_with(stable_id, "redis")?;
+    /// ```
+    pub fn delete_entity_with(&self, stable_id: StableId, plugin_name: &str) -> Result<()> {
+        let plugin = self
+            .entity_plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        plugin.delete_entity(stable_id)
+    }
+
+    /// Checks if an entity exists in storage using the default entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the entity exists in storage, `false` otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No default entity plugin is registered
+    /// - Check operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// if manager.entity_exists(stable_id)? {
+    ///     println!("Entity exists");
+    /// }
+    /// ```
+    pub fn entity_exists(&self, stable_id: StableId) -> Result<bool> {
+        let plugin_name = self
+            .default_entity_plugin
+            .as_ref()
+            .ok_or_else(|| PersistenceError::PluginNotFound("default entity plugin".to_string()))?;
+        self.entity_exists_with(stable_id, plugin_name)
+    }
+
+    /// Checks if an entity exists in storage using a named entity plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `stable_id` - The stable ID of the entity to check
+    /// * `plugin_name` - Name of the entity plugin to use
+    ///
+    /// # Returns
+    ///
+    /// `true` if the entity exists in storage, `false` otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Plugin is not registered
+    /// - Check operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// if manager.entity_exists_with(stable_id, "redis")? {
+    ///     println!("Entity exists in Redis");
+    /// }
+    /// ```
+    pub fn entity_exists_with(&self, stable_id: StableId, plugin_name: &str) -> Result<bool> {
+        let plugin = self
+            .entity_plugins
+            .get(plugin_name)
+            .ok_or_else(|| PersistenceError::PluginNotFound(plugin_name.to_string()))?;
+
+        plugin.entity_exists(stable_id)
+    }
+
+    /// Lists all registered entity plugin names.
+    pub fn list_entity_plugins(&self) -> Vec<&str> {
+        self.entity_plugins.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Gets the name of the default entity plugin, if set.
+    pub fn default_entity_plugin(&self) -> Option<&str> {
+        self.default_entity_plugin.as_deref()
     }
 }
 
