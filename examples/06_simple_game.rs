@@ -43,6 +43,7 @@ impl Component for Rotation {}
 #[derive(Debug, Clone, Copy)]
 struct Health {
     current: i32,
+    #[allow(dead_code)]
     max: i32,
 }
 
@@ -50,6 +51,7 @@ impl Component for Health {}
 
 #[derive(Debug, Clone, Copy)]
 struct Damage {
+    #[allow(dead_code)]
     amount: i32,
 }
 
@@ -143,7 +145,7 @@ impl Game {
         self.cleanup_system();
 
         // Spawn new asteroids periodically
-        if self.frame % 120 == 0 {
+        if self.frame.is_multiple_of(120) {
             self.spawn_asteroid();
         }
     }
@@ -253,7 +255,7 @@ impl Game {
 
     fn fire_bullet(&mut self) {
         // Get player position and rotation
-        if let Some((player_id, player_pos, player_rot)) = self
+        if let Some((_player_id, player_pos, player_rot)) = self
             .world
             .query::<(EntityId, &Position, &Rotation, &Player)>()
             .map(|(id, pos, rot, _)| (id, *pos, *rot))
