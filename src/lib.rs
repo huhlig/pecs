@@ -78,6 +78,9 @@ pub mod persistence;
 pub mod query;
 pub mod world;
 
+// Re-export the derive macro
+pub use pecs_derive::Component;
+
 /// Convenient re-exports for common types.
 ///
 /// Use `use pecs::prelude::*;` to import all commonly used types.
@@ -86,6 +89,9 @@ pub mod prelude {
     pub use crate::component::Component;
     pub use crate::entity::{EntityId, StableId};
     pub use crate::world::World;
+
+    // Re-export derive macro
+    pub use pecs_derive::Component;
 }
 
 // Re-export commonly used types
