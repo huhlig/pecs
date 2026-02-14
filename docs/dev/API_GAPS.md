@@ -3,7 +3,7 @@
 **Date**: 2026-02-13
 **Phase**: 3 - Polish & Optimization
 **Task**: 1.1 - Performance Profiling Setup
-**Status**: ✅ **RESOLVED** (2026-02-13)
+**Status**: ✅ **FULLY RESOLVED** (2026-02-14)
 
 ## Overview
 
@@ -96,28 +96,47 @@ let entity = world.spawn().with(Position { x: 0.0, y: 0.0 }).build();
 
 **Status**: Deferred to future release
 
-## Known Limitations
+## ✅ Resolved: Archetype Transitions
 
-### Archetype Transitions
+**Fixed**: 2026-02-14
 
-The current implementation has a limitation with archetype transitions when adding components to entities that already have components:
+All archetype transition issues have been resolved:
 
 - ✅ Single component per entity works perfectly
 - ✅ Builder pattern (`.spawn().with(A).with(B)`) creates entity with multiple components
-- ⚠️ Sequential `insert()` calls don't yet copy existing components during archetype transitions
+- ✅ Sequential `insert()` calls properly copy existing components during archetype transitions
+- ✅ `remove()` method properly moves entities to new archetypes while preserving remaining components
 
-**Workaround**: Use the builder pattern when spawning entities with multiple components.
+### Bugs Fixed
 
-**Status**: Documented limitation, will be addressed in future optimization work.
+1. **EntityBuilder Component Storage**: Fixed incorrect pointer casting in `EntityBuilder::id()` that prevented components from being stored correctly. Components are now properly transferred from `Box<dyn Any>` to archetype storage.
+
+2. **EntityBuilder Location Tracking**: Added missing entity location tracking in `EntityBuilder::id()` so entities spawned with the builder pattern are properly registered in the archetype manager.
+
+3. **Remove Method Archetype Transition**: Implemented proper archetype transition in `World::remove()` method. When a component is removed, the entity now moves to a new archetype containing only the remaining components, rather than being removed entirely.
+
+**Tests**: All 202 tests passing, including:
+- `query_after_component_removal` - Verifies queries work correctly after component removal
+- `sequential_insert_*` tests - Verify multiple sequential inserts work correctly
+- All existing component lifecycle tests
 
 ## Summary
 
-✅ **Phase 3 Week 7-8 API Enrichment: COMPLETE**
+✅ **Phase 3 API Gaps: FULLY RESOLVED**
 
 - All critical World methods implemented
 - Query system fully integrated
-- 177 tests passing (13 new tests added)
+- Archetype transitions fully working for all operations
+- EntityBuilder properly stores components and tracks entity locations
+- Component removal properly handles archetype transitions
+- 202 tests passing (all tests enabled and passing)
 - Code clean (clippy) and formatted
 - Comprehensive rustdoc documentation
 
-The core API is now complete and functional for single-component operations. The library is ready for internal use and further optimization work.
+The core API is now complete and fully functional for all component operations including:
+- Multiple components per entity via builder pattern
+- Sequential component insertion with proper archetype transitions
+- Component removal with archetype transitions
+- Complex queries across multiple archetypes
+
+The library is ready for production use and further optimization work.

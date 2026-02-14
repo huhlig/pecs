@@ -621,21 +621,70 @@ impl World {
             return None;
         }
 
-        // Get the component value before removing
+        let component_type_id = ComponentTypeId::of::<T>();
+
+        // Get the row before we move the entity
+        let row = self
+            .archetypes
+            .get_archetype(current_archetype_id)?
+            .get_entity_row(entity)?;
+
+        // Collect remaining component types (all except the one being removed)
+        let (new_component_types, component_info) = self
+            .archetypes
+            .get_archetype(current_archetype_id)
+            .map(|a| {
+                let mut types = a.component_types().clone();
+                types.remove(component_type_id);
+
+                let mut infos = Vec::new();
+                // Collect ComponentInfo for remaining types
+                for type_id in types.iter() {
+                    if let Some(storage) = a.get_storage(type_id) {
+                        infos.push(storage.info().clone());
+                    }
+                }
+                (types, infos)
+            })
+            .unwrap_or_default();
+
+        // Read the component value before moving (but after we know the row)
+        // We need to do this before move_entity_between_archetypes because that will
+        // remove the entity from the source archetype
         let component_value = unsafe {
-            self.archetypes
-                .get_archetype(current_archetype_id)?
-                .get_component::<T>(entity)
-                .map(|c| std::ptr::read(c as *const T))
-        }?;
+            let archetype = self.archetypes.get_archetype(current_archetype_id)?;
+            let storage = archetype.get_storage(component_type_id)?;
+            let ptr = storage.get(row) as *const T;
+            std::ptr::read(ptr)
+        };
 
-        // Remove from current archetype and update location
-        if let Some(archetype) = self.archetypes.get_archetype_mut(current_archetype_id) {
-            archetype.remove_entity(entity);
+        // Get or create target archetype (may be empty archetype)
+        let target_archetype_id = self
+            .archetypes
+            .get_or_create_archetype(new_component_types, component_info);
+
+        // Move entity to new archetype (this copies remaining components)
+        // Note: The component we're removing won't be copied because the target
+        // archetype doesn't have that component type
+        let target_row = unsafe {
+            self.archetypes.move_entity_between_archetypes(
+                entity,
+                current_archetype_id,
+                target_archetype_id,
+                &[], // No new components to add
+            )
+        };
+
+        // Update entity location
+        if let Some(row) = target_row {
+            self.archetypes.set_entity_location(
+                entity,
+                crate::component::archetype::EntityLocation {
+                    archetype_id: target_archetype_id,
+                    row,
+                },
+            );
         }
-
-        // Remove entity location since it's no longer in any archetype
-        self.archetypes.remove_entity_location(entity);
 
         // Track component modification for persistence
         self.persistence.change_tracker_mut().track_modified(entity);
@@ -1114,7 +1163,15 @@ impl<'w> EntityBuilder<'w> {
         if self.components.is_empty() {
             let empty_archetype_id = ArchetypeId::new(0);
             if let Some(archetype) = self.world.archetypes.get_archetype_mut(empty_archetype_id) {
-                archetype.allocate_row(self.entity_id);
+                let row = archetype.allocate_row(self.entity_id);
+                // Set entity location
+                self.world.archetypes.set_entity_location(
+                    self.entity_id,
+                    crate::component::archetype::EntityLocation {
+                        archetype_id: empty_archetype_id,
+                        row,
+                    },
+                );
             }
             return self.entity_id;
         }
@@ -1142,10 +1199,22 @@ impl<'w> EntityBuilder<'w> {
             for (type_id, _info, component) in self.components {
                 // SAFETY: We just allocated the row and the component type exists in the archetype
                 unsafe {
-                    let component_ptr = &*component as *const dyn std::any::Any as *const u8;
+                    // Get a pointer to the component data inside the Box<dyn Any>
+                    let component_ptr = Box::into_raw(component) as *mut u8;
+
+                    // Copy the component data
                     archetype.set_component(row, type_id, component_ptr);
+
+                    // Don't drop the box - ownership transferred to archetype
+                    // The component_ptr points to heap memory that will be managed by the archetype
                 }
             }
+
+            // Set entity location
+            self.world.archetypes.set_entity_location(
+                self.entity_id,
+                crate::component::archetype::EntityLocation { archetype_id, row },
+            );
         }
 
         self.entity_id
