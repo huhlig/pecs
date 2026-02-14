@@ -1,7 +1,7 @@
 # PECS Enhancement Plan
 
 **Last Updated**: 2026-02-14
-**Status**: In Progress - Phase 1 (1/2 complete)
+**Status**: In Progress - Phase 1 (3/4 complete)
 
 ## Overview
 
@@ -110,97 +110,75 @@ let entity = world.spawn_bundle((
 
 ---
 
-#### 1.3 Direct Component Access
+#### 1.3 Direct Component Access ✅ **COMPLETE** (2026-02-13)
 **Location**: `pecs/src/world.rs`
+
+**Status**: Fully implemented and tested
+- Implemented World::get() for immutable component access
+- Implemented World::get_mut() for mutable component access
+- Implemented World::insert() with archetype migration support
+- Implemented World::remove() with archetype migration support
+- Implemented World::has() for component existence checks
+- 13 comprehensive tests added (177 total tests passing)
+- All code clean (clippy) and formatted
 
 **Implementation**:
 ```rust
-impl World {
-    /// Get a component reference
-    pub fn get<T: Component>(&self, entity: EntityId) -> Option<&T> {
-        let location = self.archetypes.get_entity_location(entity)?;
-        let archetype = self.archetypes.get_archetype(location.archetype_id)?;
-        archetype.get_component::<T>(entity)
-    }
-    
-    /// Get a mutable component reference
-    pub fn get_mut<T: Component>(&mut self, entity: EntityId) -> Option<&mut T> {
-        let location = self.archetypes.get_entity_location(entity)?;
-        let archetype = self.archetypes.get_archetype_mut(location.archetype_id)?;
-        
-        // Mark entity as dirty for persistence
-        self.persistence.change_tracker_mut().track_modified(entity);
-        
-        archetype.get_component_mut::<T>(entity)
-    }
-    
-    /// Insert a component (replaces if exists)
-    pub fn insert<T: Component>(&mut self, entity: EntityId, component: T) -> Result<(), EntityError> {
-        // Handle archetype migration if component type changes
-        // Mark entity as dirty
-        // ...
-    }
-    
-    /// Remove a component
-    pub fn remove<T: Component>(&mut self, entity: EntityId) -> Option<T> {
-        // Handle archetype migration
-        // Mark entity as dirty
-        // ...
-    }
-    
-    /// Check if entity has component
-    pub fn has<T: Component>(&self, entity: EntityId) -> bool {
-        self.get::<T>(entity).is_some()
-    }
-}
+// Usage:
+let pos = world.get::<Position>(entity)?;
+let pos_mut = world.get_mut::<Position>(entity)?;
+world.insert(entity, Position { x: 1.0, y: 2.0 });
+let removed = world.remove::<Position>(entity);
+if world.has::<Position>(entity) { /* ... */ }
 ```
 
 **Benefits**:
-- Essential for game logic
-- Matches hecs/Bevy API
-- Enables component-based programming
+- ✅ Essential for game logic
+- ✅ Matches hecs/Bevy API
+- ✅ Enables component-based programming
+- ✅ Proper archetype migration handling
 
-**Effort**: 6-8 hours (complex due to archetype migration)
+**Actual Effort**: ~6 hours
 
 ---
 
-#### 1.4 Query System
-**Location**: `pecs/src/query.rs` (enhance existing)
+#### 1.4 Query System ✅ **COMPLETE** (2026-02-13)
+**Location**: `pecs/src/query.rs` (enhanced existing)
+
+**Status**: Fully implemented and tested
+- Implemented World::query() for component queries
+- Implemented World::query_filtered() for filtered queries
+- Query trait implemented for tuples up to 8 components
+- Comprehensive query integration tests added
+- All 202 tests passing
+- All code clean (clippy) and formatted
 
 **Implementation**:
 ```rust
-// Current PECS has basic query infrastructure, needs ergonomic API
-
-impl World {
-    /// Query entities with components
-    pub fn query<Q: Query>(&self) -> QueryIter<Q> {
-        QueryIter::new(self, Q::fetch_state(self))
-    }
-    
-    /// Query with filter
-    pub fn query_filtered<Q: Query, F: Filter>(&self) -> FilteredQueryIter<Q, F> {
-        FilteredQueryIter::new(self, Q::fetch_state(self), F::filter_state(self))
-    }
-}
-
 // Usage:
-for (entity, (name, health)) in world.query::<(&Name, &Health)>() {
+for (name, health) in world.query::<(&Name, &Health)>() {
     println!("{}: {}/{}", name.0, health.current, health.max);
 }
 
 // Mutable queries:
-for (entity, (pos, vel)) in world.query::<(&mut Position, &Velocity)>() {
+for (pos, vel) in world.query::<(&mut Position, &Velocity)>() {
     pos.x += vel.x;
     pos.y += vel.y;
+}
+
+// Filtered queries:
+for pos in world.query_filtered::<&Position, With<Velocity>>() {
+    // Only entities with both Position and Velocity
 }
 ```
 
 **Benefits**:
-- Core ECS functionality
-- Efficient iteration
-- Type-safe queries
+- ✅ Core ECS functionality
+- ✅ Efficient iteration with caching
+- ✅ Type-safe queries
+- ✅ Supports complex filter combinations
 
-**Effort**: 8-12 hours (complex, needs careful design)
+**Actual Effort**: ~8 hours
 
 ---
 
@@ -363,13 +341,13 @@ impl World {
 
 ## Implementation Strategy
 
-### Phase 1: Core Features (Week 1)
-1. Component Derive Macro (2-4h)
-2. Bundle System (4-6h)
-3. Direct Component Access (6-8h)
-4. Basic Query Enhancement (8-12h)
+### Phase 1: Core Features (Week 1) - 75% Complete
+1. ✅ Component Derive Macro (2h) - COMPLETE
+2. ⏳ Bundle System (4-6h) - NEXT
+3. ✅ Direct Component Access (6h) - COMPLETE
+4. ✅ Basic Query Enhancement (8h) - COMPLETE
 
-**Total**: ~20-30 hours
+**Total**: ~20-30 hours (16h complete, 4-6h remaining)
 
 ### Phase 2: Essential QoL (Week 2)
 1. Spawn with StableId (2-3h)
