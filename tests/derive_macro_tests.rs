@@ -26,15 +26,18 @@ struct Position {
 }
 
 #[derive(Component, Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct Velocity {
     x: f32,
     y: f32,
 }
 
 #[derive(Component, Debug, Clone)]
+#[allow(dead_code)]
 struct Name(String);
 
 #[derive(Component, Debug)]
+#[allow(dead_code)]
 struct Health {
     current: i32,
     max: i32,
@@ -79,6 +82,7 @@ fn test_derive_macro_multiple_components() {
 #[test]
 fn test_derive_macro_with_generics() {
     #[derive(Component, Debug)]
+    #[allow(dead_code)]
     struct Container<T> {
         value: T,
     }

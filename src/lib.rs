@@ -71,6 +71,7 @@
 //! - [`world`]: Top-level ECS world
 //! - [`persistence`]: Pluggable persistence system
 
+pub mod bundle;
 pub mod command;
 pub mod component;
 pub mod entity;
@@ -85,6 +86,7 @@ pub use pecs_derive::Component;
 ///
 /// Use `use pecs::prelude::*;` to import all commonly used types.
 pub mod prelude {
+    pub use crate::bundle::Bundle;
     pub use crate::command::{Command, CommandBuffer};
     pub use crate::component::Component;
     pub use crate::entity::{EntityId, StableId};
@@ -95,6 +97,7 @@ pub mod prelude {
 }
 
 // Re-export commonly used types
+pub use bundle::Bundle;
 pub use command::{Command, CommandBuffer};
 pub use component::Component;
 pub use entity::{EntityId, EntityManager, StableId};
