@@ -32,7 +32,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 /// Derives the `Component` trait for a type.
 ///
@@ -69,21 +69,26 @@ use syn::{parse_macro_input, DeriveInput};
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
-    
+
     // Build where clause with Component bounds
     let generics = &input.generics;
     let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-    
+
     // Add Send + Sync + 'static bounds for generic parameters
     let mut generics_with_bounds = generics.clone();
     for param in &mut generics_with_bounds.params {
         if let syn::GenericParam::Type(type_param) = param {
-            type_param.bounds.push(syn::parse_quote!(::std::marker::Send));
-            type_param.bounds.push(syn::parse_quote!(::std::marker::Sync));
+            type_param
+                .bounds
+                .push(syn::parse_quote!(::std::marker::Send));
+            type_param
+                .bounds
+                .push(syn::parse_quote!(::std::marker::Sync));
             type_param.bounds.push(syn::parse_quote!('static));
         }
     }
-    let (impl_generics_with_bounds, _, where_clause_with_bounds) = generics_with_bounds.split_for_impl();
+    let (impl_generics_with_bounds, _, where_clause_with_bounds) =
+        generics_with_bounds.split_for_impl();
 
     // Generate the Component trait implementation
     let expanded = quote! {
