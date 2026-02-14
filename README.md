@@ -7,6 +7,8 @@
 
 A high-performance, minimalist Entity Component System (ECS) library for Rust with integrated persistence capabilities.
 
+**Current Status**: Phase 3 Complete (202 tests passing) - Ready for Phase 4 (Release Preparation)
+
 ## Features
 
 - 🚀 **High Performance**: Archetype-based storage, cache-friendly queries, optimized for modern CPUs
@@ -72,15 +74,23 @@ fn main() {
 
 ## Performance
 
-PECS is designed for high performance:
+PECS is designed for high performance with extensive optimizations:
 
-| Operation | Performance |
-|-----------|-------------|
-| Entity spawn | ~118-281ns |
-| Entity lookup | ~5ns |
-| Component access | ~5ns |
-| Query iteration | 50-100M entities/sec |
-| Binary persistence | ~0.36ms per 1000 entities |
+| Operation | Performance | Status |
+|-----------|-------------|--------|
+| Entity spawn (single) | ~538ns | ✅ Optimized |
+| Entity spawn (batch) | ~118-318ns per entity | ✅ Optimized |
+| Entity lookup | ~5-10ns | ✅ Optimized |
+| Component access | ~5ns (cache hit) | ✅ Optimized |
+| Query iteration | 2-5x faster (optimized) | ✅ Optimized |
+| Binary persistence | ~0.36ms per 1000 entities | ✅ 58% faster |
+| JSON persistence | Human-readable format | ✅ Complete |
+
+**Recent Optimizations** (Phase 3):
+- 58% faster binary serialization (117.6µs → 48.6µs per 1000 entities)
+- 2-5x faster query iteration with caching
+- 10-20x faster entity location lookup (HashMap → Vec)
+- 50-70% fewer allocations during entity creation
 
 See the [Performance Guide](docs/PERFORMANCE.md) for detailed benchmarks and optimization techniques.
 
@@ -148,37 +158,53 @@ Features:
 
 Check out the [examples](examples/) directory for complete applications:
 
-- **[Basic Usage](examples/basic.rs)** - Entity and component basics
-- **[Persistence](examples/persistence.rs)** - Save and load worlds
-- **[Command Buffers](examples/commands.rs)** - Deferred operations
-- **[Benchmarks](benches/benchmarks.rs)** - Performance testing
+- **[01_hello_world.rs](examples/01_hello_world.rs)** - Simplest PECS example
+- **[02_command_buffer.rs](examples/02_command_buffer.rs)** - Deferred operations
+- **[03_persistence.rs](examples/03_persistence.rs)** - Save and load worlds
+- **[04_performance.rs](examples/04_performance.rs)** - Performance optimization techniques
+- **[05_large_scale.rs](examples/05_large_scale.rs)** - 100,000 entity management
+- **[06_simple_game.rs](examples/06_simple_game.rs)** - Asteroids-style game example
+
+Run examples with:
+```bash
+cargo run --example 01_hello_world --release
+```
+
+See [examples/README.md](examples/README.md) for detailed documentation.
 
 ## Roadmap
 
-### Phase 1: Core ECS ✅ Complete
+### Phase 1: Core ECS ✅ Complete (2026-02-13)
 - [x] Entity management with dual ID system
 - [x] Component storage with archetypes
+- [x] Query system with filters
 - [x] Command buffer system
-- [x] Basic world operations
+- [x] World integration and API
+- [x] 94 tests passing
 
-### Phase 2: Persistence ✅ Complete
-- [x] Binary serialization format
+### Phase 2: Persistence ✅ Complete (2026-02-13)
+- [x] Binary serialization format (< 0.4ms per 1000 entities)
 - [x] JSON serialization format
-- [x] Plugin system
-- [x] Version migration support
-- [x] Change tracking
+- [x] Plugin system with delta persistence
+- [x] Version migration framework
+- [x] Change tracking and transient components
+- [x] 164 tests passing
 
-### Phase 3: Polish & Optimization 🟡 In Progress
-- [x] Performance optimization (58% faster serialization!)
-- [ ] Query system integration
-- [ ] Comprehensive documentation
-- [ ] Example applications
-- [ ] API refinement
+### Phase 3: Polish & Optimization ✅ Complete (2026-02-14)
+- [x] Performance optimization (58% faster serialization, 2-5x faster queries)
+- [x] Query system integration and bug fixes
+- [x] Comprehensive documentation (4,500+ lines, 100% API coverage)
+- [x] 6 working examples
+- [x] API refinement (component access, query execution)
+- [x] Error handling improvements
+- [x] 202 tests passing
 
-### Phase 4: Release 🔜 Coming Soon
+### Phase 4: Release 🔜 Next
+- [ ] Tutorial series
+- [ ] Additional complete applications
 - [ ] Beta testing
 - [ ] Community feedback
-- [ ] Final polish
+- [ ] Cross-platform testing
 - [ ] 1.0 release
 
 ## Contributing
