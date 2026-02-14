@@ -1,5 +1,8 @@
 # PECS Enhancement Plan
 
+**Last Updated**: 2026-02-14
+**Status**: In Progress - Phase 1 (1/2 complete)
+
 ## Overview
 
 This document outlines the enhancements needed to make PECS (Persistent Entity Component System) viable for the Wyldlands project. PECS is currently a minimal ECS implementation that needs additional features to match our requirements.
@@ -12,38 +15,58 @@ This document outlines the enhancements needed to make PECS (Persistent Entity C
 3. **Archetype Storage**: Cache-friendly component storage
 4. **Basic Persistence**: Save/load world state (binary and JSON)
 5. **Command Buffers**: Thread-safe deferred operations
+6. **Component Derive Macro**: ✅ **NEW** - `#[derive(Component)]` support (2026-02-14)
+7. **Direct Component Access**: ✅ World::get(), get_mut(), insert(), remove(), has()
+8. **Query System**: ✅ World::query() and query_filtered()
 
-### ❌ What PECS Lacks:
-1. **Component Derive Macro**: Must manually implement `Component` trait
-2. **Bundle System**: No convenient multi-component spawn syntax
-3. **Direct Component Access**: No `world.get::<T>(entity)` or `world.insert::<T>(entity, component)`
-4. **Query System**: No ergonomic query API like `world.query::<(&Name, &Health)>()`
-5. **Component Mutation**: No `world.get_mut::<T>(entity)`
-6. **Entity Builder Completion**: Builder pattern exists but incomplete
+### ❌ What PECS Still Lacks:
+1. **Bundle System**: No convenient multi-component spawn syntax
+2. **Entity Relationships**: No parent-child or generic relationship support
+3. **Change Detection**: No Changed<T> filter for reactive systems
+4. **Event System**: No built-in event handling
+5. **Parallel Queries**: No par_query() for multi-threaded iteration
 
-## Required Enhancements
+## Implementation Progress
 
-### Priority 1: Essential Features (Blocking Migration)
+### ✅ Completed Features
 
-#### 1.1 Component Derive Macro
+#### 1.1 Component Derive Macro ✅ **COMPLETE** (2026-02-14)
 **Location**: `pecs/pecs_derive/` (new crate)
+
+**Status**: Fully implemented and tested
+- Created pecs_derive procedural macro crate
+- Implements `#[derive(Component)]` with automatic bounds
+- Supports generic types with Send + Sync + 'static bounds
+- 5 comprehensive tests added
+- All 206 tests passing
 
 **Implementation**:
 ```rust
 // Usage:
-#[derive(Component)]
+#[derive(Component, Debug)]
 struct Position { x: f32, y: f32 }
+
+#[derive(Component)]
+struct Container<T> { value: T }  // Automatic bounds added
 
 // Expands to:
 impl pecs::Component for Position {}
+impl<T: Send + Sync + 'static> pecs::Component for Container<T> {}
 ```
 
 **Benefits**:
-- Reduces boilerplate
-- Matches Bevy/hecs ergonomics
-- Makes migration easier
+- ✅ Reduces boilerplate
+- ✅ Matches Bevy/hecs ergonomics
+- ✅ Makes migration easier
+- ✅ Type-safe with proper bounds
 
-**Effort**: 2-4 hours
+**Actual Effort**: ~2 hours
+
+---
+
+## Required Enhancements
+
+### Priority 1: Essential Features (Blocking Migration)
 
 ---
 
