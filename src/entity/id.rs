@@ -36,6 +36,7 @@
 
 use std::fmt;
 use std::num::NonZeroU64;
+use uuid::Uuid;
 
 /// A fast, ephemeral entity identifier optimized for runtime operations.
 ///
@@ -286,6 +287,41 @@ impl StableId {
     pub const fn from_u128(value: u128) -> Self {
         Self(value)
     }
+
+    /// Converts this `StableId` to a UUID.
+    ///
+    /// The 128-bit internal representation is directly converted to a UUID.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::id::StableId;
+    ///
+    /// let id = StableId::new();
+    /// let uuid = id.as_uuid();
+    /// assert_eq!(uuid.as_u128(), id.as_u128());
+    /// ```
+    #[inline]
+    pub fn as_uuid(self) -> Uuid {
+        Uuid::from_u128(self.0)
+    }
+
+    /// Creates a `StableId` from a UUID.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pecs::entity::id::StableId;
+    /// use uuid::Uuid;
+    ///
+    /// let uuid = Uuid::new_v4();
+    /// let id = StableId::from_uuid(uuid);
+    /// assert_eq!(id.as_uuid(), uuid);
+    /// ```
+    #[inline]
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid.as_u128())
+    }
 }
 
 impl Default for StableId {
@@ -379,5 +415,22 @@ mod tests {
         let id = StableId::from_raw(0x12345678_90abcdef_12345678_90abcdef);
         let display = format!("{}", id);
         assert_eq!(display.len(), 32); // 32 hex characters
+    }
+
+    #[test]
+    fn stable_id_uuid_conversion() {
+        let id = StableId::new();
+        let uuid = id.as_uuid();
+        let restored = StableId::from_uuid(uuid);
+        assert_eq!(id, restored);
+        assert_eq!(uuid.as_u128(), id.as_u128());
+    }
+
+    #[test]
+    fn stable_id_from_uuid() {
+        use uuid::Uuid;
+        let uuid = Uuid::new_v4();
+        let id = StableId::from_uuid(uuid);
+        assert_eq!(id.as_uuid(), uuid);
     }
 }
