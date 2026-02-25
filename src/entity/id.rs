@@ -54,7 +54,7 @@ use uuid::Uuid;
 /// - Size: 8 bytes
 /// - Copy: Yes (trivial copy)
 /// - Lookup: O(1)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct EntityId(NonZeroU64);
 
 impl EntityId {
@@ -179,7 +179,7 @@ impl fmt::Display for EntityId {
 /// # Format
 ///
 /// Uses UUID v4 (random) format for maximum uniqueness guarantees.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct StableId(u128);
 
 impl StableId {
